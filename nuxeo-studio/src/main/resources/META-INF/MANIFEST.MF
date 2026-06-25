@@ -1,0 +1,6 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Nuxeo Studio Local - Community Cookbook
+Bundle-SymbolicName: com.project.nuxeo.studio-local
+Bundle-Version: 1.0.0.SNAPSHOT
+Nuxeo-Component: OSGI-INF/cookbook-contrib.xml

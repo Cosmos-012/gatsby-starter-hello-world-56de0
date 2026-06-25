@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.project.nuxeo</groupId>
+  <artifactId>nuxeo-studio-local</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <name>Nuxeo Studio Local - Community Cookbook</name>
+  <description>Local Nuxeo Studio setup using community cookbook modules</description>
+
+  <repositories>
+    <repository>
+      <id>nuxeo-public</id>
+      <url>https://packages.nuxeo.com/repository/maven-public/</url>
+      <releases><enabled>true</enabled></releases>
+      <snapshots><enabled>true</enabled></snapshots>
+    </repository>
+  </repositories>
+
+  <properties>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- Override with your Nuxeo server version -->
+    <nuxeo.version>2023.10.0</nuxeo.version>
+  </properties>
+
+  <dependencies>
+    <!-- Nuxeo Core -->
+    <dependency>
+      <groupId>org.nuxeo.ecm.core</groupId>
+      <artifactId>nuxeo-core</artifactId>
+      <version>${nuxeo.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <!-- Nuxeo Automation Core -->
+    <dependency>
+      <groupId>org.nuxeo.ecm.automation</groupId>
+      <artifactId>nuxeo-automation-core</artifactId>
+      <version>${nuxeo.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <!-- Nuxeo Platform -->
+    <dependency>
+      <groupId>org.nuxeo.ecm.platform</groupId>
+      <artifactId>nuxeo-platform-webapp-core</artifactId>
+      <version>${nuxeo.version}</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- Package as OSGI bundle -->
+      <plugin>
+        <groupId>org.apache.felix</groupId>
+        <artifactId>maven-bundle-plugin</artifactId>
+        <version>5.1.9</version>
+        <extensions>true</extensions>
+        <configuration>
+          <instructions>
+            <Bundle-SymbolicName>com.project.nuxeo.studio-local</Bundle-SymbolicName>
+            <Nuxeo-Component>OSGI-INF/cookbook-contrib.xml</Nuxeo-Component>
+          </instructions>
+        </configuration>
+      </plugin>
+      <!-- Copy resources to deployment folder via: mvn process-resources -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.3.1</version>
+        <configuration>
+          <encoding>UTF-8</encoding>
+        </configuration>
+      </plugin>
+    </plugins>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+      </resource>
+    </resources>
+  </build>
+</project>

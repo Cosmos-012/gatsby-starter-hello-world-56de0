@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<!--
+  Nuxeo Studio Community Cookbook - XML Contributions
+
+  This file aggregates XML extensions imported from cookbook modules.
+  Each module's modeler/configuration XML goes in its own <require> or
+  inline here. See scripts/fetch-module.sh to download a module.
+
+  Documentation: https://github.com/nuxeo/nuxeo-studio-community-cookbook
+-->
+<component name="com.project.nuxeo.cookbook.contributions">
+
+  <!--
+    EXAMPLE: Uncomment after fetching the workflow-status module:
+    (run: ./scripts/fetch-module.sh workflow-status)
+
+  <extension target="org.nuxeo.ecm.platform.actions.ActionService"
+             point="actions">
+    ... paste module actions XML here ...
+  </extension>
+  -->
+
+  <!-- Add your cookbook module contributions below -->
+
+</component>

@@ -1,0 +1,15 @@
+# Maven
+nuxeo-studio/target/
+nuxeo-studio/*.jar
+
+# Node / Gatsby
+node_modules/
+.cache/
+public/
+
+# Runtime temp
+/tmp/nx_*.txt
+
+# OS
+.DS_Store
+Thumbs.db
