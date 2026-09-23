@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<!--
+  DocuCentral MVP - Web UI registration
+  Follows the Community Cookbook pattern (see modules/workflow-status):
+  one import resource appended to the `web-ui` bundle.
+-->
+<component name="com.project.nuxeo.docucentral.ui">
+  <require>com.project.nuxeo.docucentral.core</require>
+
+  <extension target="org.nuxeo.ecm.platform.WebResources" point="resources">
+    <resource name="docucentral-bundle.html" type="import">
+      <uri>/ui/docucentral-bundle.html</uri>
+    </resource>
+  </extension>
+
+  <extension target="org.nuxeo.ecm.platform.WebResources" point="bundles">
+    <bundle name="web-ui">
+      <resources append="true">
+        <resource>docucentral-bundle.html</resource>
+      </resources>
+    </bundle>
+  </extension>
+
+</component>

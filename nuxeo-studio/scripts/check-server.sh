@@ -20,7 +20,7 @@ HTTP_STATUS=$(curl -s -o /tmp/nuxeo-ping.json -w "%{http_code}" \
   "$NUXEO_URL/api/v1/automation/login" \
   -H "Content-Type: application/json" \
   -u "$NUXEO_ADMIN_USER:$NUXEO_ADMIN_PASSWORD" \
-  --max-time 10 2>/dev/null)
+  --max-time 10 2>/dev/null) || HTTP_STATUS="000"
 
 case "$HTTP_STATUS" in
   200)
@@ -50,10 +50,6 @@ esac
 # Check hot reload
 echo ""
 echo "Checking hot reload (org.nuxeo.dev mode)..."
-DEV_STATUS=$(curl -s \
-  "$NUXEO_URL/api/v1/config/properties?category=org.nuxeo.dev" \
-  -u "$NUXEO_ADMIN_USER:$NUXEO_ADMIN_PASSWORD" 2>/dev/null | \
-  python3 -c "import sys,json; d=json.load(sys.stdin); print(d)" 2>/dev/null || echo "unknown")
 
 if [[ "$HOT_RELOAD_ENABLED" == "true" ]]; then
   echo "  Hot reload is configured (HOT_RELOAD_ENABLED=true in config)."
@@ -61,6 +57,19 @@ if [[ "$HOT_RELOAD_ENABLED" == "true" ]]; then
 else
   echo "  Hot reload is disabled. Full restart needed for changes."
 fi
+
+echo ""
+echo "Checking DocuCentral package..."
+for type in DCControlledDocument DCLibrary; do
+  TYPE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+    "$NUXEO_URL/api/v1/config/types/$type" \
+    -u "$NUXEO_ADMIN_USER:$NUXEO_ADMIN_PASSWORD" --max-time 10 2>/dev/null) || TYPE_STATUS="000"
+  if [[ "$TYPE_STATUS" == "200" ]]; then
+    echo "  [OK] document type $type is registered."
+  else
+    echo "  [--] document type $type not found (HTTP $TYPE_STATUS) — run ./scripts/deploy.sh"
+  fi
+done
 
 echo ""
 echo "Server check complete."

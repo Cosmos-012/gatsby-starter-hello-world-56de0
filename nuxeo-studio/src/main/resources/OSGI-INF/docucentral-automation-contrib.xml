@@ -1,0 +1,307 @@
+<?xml version="1.0"?>
+<!--
+  DocuCentral MVP - business logic
+  Scripted automation operations, event handlers, scheduled jobs and queries.
+
+  Reuses the Community Cookbook helper `utils_FollowTransitionIfPossible`
+  (modules/automation-script-utils) so lifecycle moves never fail hard when a
+  document is already in the target state.
+-->
+<component name="com.project.nuxeo.docucentral.automation">
+  <require>com.project.nuxeo.docucentral.core</require>
+
+  <extension target="org.nuxeo.automation.scripting.internals.AutomationScriptingComponent"
+             point="operation">
+
+    <!-- ============================================================
+         Cookbook helper (automation-script-utils) - reused as-is
+         ============================================================ -->
+    <scriptedOperation id="javascript.utils_FollowTransitionIfPossible">
+      <inputType>document</inputType>
+      <outputType>document</outputType>
+      <param name="transition" type="string"/>
+      <script>
+        function run(input, params) {
+          var transition = params.transition;
+          if (typeof transition !== "string" || transition === "") {
+            throw new org.nuxeo.ecm.core.api.NuxeoException("Missing the 'transition' parameter.");
+          }
+          var allowedTransitions = input.doc.getAllowedStateTransitions();
+          if (allowedTransitions.contains(transition)) {
+            input = Document.FollowLifecycleTransition(input, { 'value': transition });
+          } else {
+            Console.warn(input.title + " cannot follow transition &lt;" + transition
+                         + "&gt; from state &lt;" + input.lifeCycle + "&gt;");
+          }
+          return input;
+        }
+      </script>
+    </scriptedOperation>
+
+    <!-- ============================================================
+         Assign the document reference: DC-&lt;DEPT&gt;-&lt;YYYY&gt;-&lt;NNNN&gt;
+         Called on aboutToCreate; idempotent.
+         ============================================================ -->
+    <scriptedOperation id="javascript.docucentral_AssignReference">
+      <inputType>document</inputType>
+      <outputType>document</outputType>
+      <script>
+        function run(input, params) {
+          if (input["dcx:reference"]) {
+            return input;
+          }
+          var dept = input["dcx:department"] || "GEN";
+          var year = CurrentDate.format("yyyy");
+          var prefix = "DC-" + dept + "-" + year + "-";
+
+          // Count existing references for this department/year to derive the sequence.
+          var siblings = Repository.ResultSetQuery(null, {
+            'query': "SELECT COUNT(ecm:uuid) FROM DCControlledDocument "
+                   + "WHERE dcx:reference LIKE '" + prefix + "%' "
+                   + "AND ecm:isVersion = 0 AND ecm:isTrashed = 0"
+          });
+          var next = 1;
+          if (siblings &amp;&amp; siblings.size() &gt; 0) {
+            next = parseInt(siblings.get(0).get("COUNT(ecm:uuid)"), 10) + 1;
+          }
+          var seq = "000" + next;
+          input["dcx:reference"] = prefix + seq.substring(seq.length - 4);
+          if (!input["dcx:owner"]) {
+            input["dcx:owner"] = currentUser.name;
+          }
+          if (!input["dcx:confidentiality"]) {
+            input["dcx:confidentiality"] = "INTERNAL";
+          }
+          return input;
+        }
+      </script>
+    </scriptedOperation>
+
+    <!-- ============================================================
+         Submit for review
+         ============================================================ -->
+    <scriptedOperation id="javascript.docucentral_SubmitForReview">
+      <inputType>document</inputType>
+      <outputType>document</outputType>
+      <param name="reviewers" type="stringlist" required="false"/>
+      <script>
+        function run(input, params) {
+          if (input.lifeCycle !== "draft") {
+            throw new org.nuxeo.ecm.core.api.NuxeoException(
+              "Only a draft can be submitted for review (current state: " + input.lifeCycle + ").");
+          }
+
+          var reviewers = params.reviewers;
+          if (reviewers &amp;&amp; reviewers.length) {
+            input["dcx:reviewers"] = reviewers;
+            for (var i = 0; i &lt; reviewers.length; i++) {
+              input = Document.AddPermission(input, {
+                'permission': "DCReview",
+                'username': reviewers[i],
+                'acl': "local",
+                'notify': false
+              });
+            }
+          }
+
+          input["dcx:submittedBy"] = currentUser.name;
+          input["dcx:submittedOn"] = CurrentDate.date;
+          input = Document.Save(input);
+          input = javascript.utils_FollowTransitionIfPossible(input, { 'transition': "to_review" });
+          Audit.LogEvent(input, {
+            'event': "docucentral_submitted",
+            'category': "DocuCentral",
+            'comment': "Submitted for review by " + currentUser.name
+          });
+          return input;
+        }
+      </script>
+    </scriptedOperation>
+
+    <!-- ============================================================
+         Approve
+         ============================================================ -->
+    <scriptedOperation id="javascript.docucentral_Approve">
+      <inputType>document</inputType>
+      <outputType>document</outputType>
+      <param name="comment" type="string" required="false"/>
+      <script>
+        function run(input, params) {
+          if (input.lifeCycle !== "review") {
+            throw new org.nuxeo.ecm.core.api.NuxeoException(
+              "Only a document under review can be approved (current state: " + input.lifeCycle + ").");
+          }
+          input["dcx:approvedBy"] = currentUser.name;
+          input["dcx:approvedOn"] = CurrentDate.date;
+          input["dcx:rejectionReason"] = null;
+          input = Document.Save(input);
+          input = javascript.utils_FollowTransitionIfPossible(input, { 'transition': "to_approved" });
+          Audit.LogEvent(input, {
+            'event': "docucentral_approved",
+            'category': "DocuCentral",
+            'comment': params.comment || ("Approved by " + currentUser.name)
+          });
+          return input;
+        }
+      </script>
+    </scriptedOperation>
+
+    <!-- ============================================================
+         Reject / send back to the author
+         ============================================================ -->
+    <scriptedOperation id="javascript.docucentral_Reject">
+      <inputType>document</inputType>
+      <outputType>document</outputType>
+      <param name="reason" type="string"/>
+      <script>
+        function run(input, params) {
+          if (!params.reason) {
+            throw new org.nuxeo.ecm.core.api.NuxeoException("A rejection reason is required.");
+          }
+          input["dcx:rejectionReason"] = params.reason;
+          input = Document.Save(input);
+          input = javascript.utils_FollowTransitionIfPossible(input, { 'transition': "back_to_draft" });
+          Audit.LogEvent(input, {
+            'event': "docucentral_rejected",
+            'category': "DocuCentral",
+            'comment': params.reason
+          });
+          return input;
+        }
+      </script>
+    </scriptedOperation>
+
+    <!-- ============================================================
+         Publish: set effective date, schedule the next review,
+         snapshot a major version.
+         ============================================================ -->
+    <scriptedOperation id="javascript.docucentral_Publish">
+      <inputType>document</inputType>
+      <outputType>document</outputType>
+      <param name="reviewCycleMonths" type="integer" required="false"/>
+      <script>
+        function run(input, params) {
+          if (input.lifeCycle !== "approved") {
+            throw new org.nuxeo.ecm.core.api.NuxeoException(
+              "Only an approved document can be published (current state: " + input.lifeCycle + ").");
+          }
+          var months = params.reviewCycleMonths || 12;
+          var next = new Date();
+          next.setMonth(next.getMonth() + months);
+
+          input["dcx:effectiveDate"] = CurrentDate.date;
+          input["dcx:nextReviewDate"] = next;
+          input = Document.Save(input);
+          input = javascript.utils_FollowTransitionIfPossible(input, { 'transition': "to_published" });
+          input = Document.CreateVersion(input, { 'increment': "Major" });
+          Audit.LogEvent(input, {
+            'event': "docucentral_published",
+            'category': "DocuCentral",
+            'comment': "Published by " + currentUser.name + "; next review " + next
+          });
+          return input;
+        }
+      </script>
+    </scriptedOperation>
+
+    <!-- ============================================================
+         Scheduled sweep: flag published documents past their review date
+         ============================================================ -->
+    <scriptedOperation id="javascript.docucentral_FlagOverdueReviews">
+      <inputType>void</inputType>
+      <outputType>void</outputType>
+      <script>
+        function run(input, params) {
+          var overdue = Repository.Query(null, {
+            'query': "SELECT * FROM DCControlledDocument "
+                   + "WHERE ecm:currentLifeCycleState = 'published' "
+                   + "AND dcx:nextReviewDate &lt; DATE '" + CurrentDate.format("yyyy-MM-dd") + "' "
+                   + "AND ecm:isVersion = 0 AND ecm:isTrashed = 0"
+          });
+          Console.warn("DocuCentral: " + overdue.size() + " document(s) overdue for review.");
+          for (var i = 0; i &lt; overdue.size(); i++) {
+            Audit.LogEvent(overdue.get(i), {
+              'event': "docucentral_review_overdue",
+              'category': "DocuCentral",
+              'comment': "Review date passed: " + overdue.get(i)["dcx:nextReviewDate"]
+            });
+          }
+        }
+      </script>
+    </scriptedOperation>
+
+  </extension>
+
+  <!-- ==================================================================
+       Event handlers
+       ================================================================== -->
+  <extension target="org.nuxeo.ecm.core.operation.OperationServiceComponent" point="event-handlers">
+
+    <handler chainId="javascript.docucentral_AssignReference">
+      <event>aboutToCreate</event>
+      <filters>
+        <doctype>DCControlledDocument</doctype>
+      </filters>
+    </handler>
+
+    <handler chainId="javascript.docucentral_FlagOverdueReviews">
+      <event>docucentralReviewSweep</event>
+    </handler>
+
+  </extension>
+
+  <!-- ==================================================================
+       Scheduler - nightly overdue-review sweep at 02:15
+       ================================================================== -->
+  <extension target="org.nuxeo.ecm.core.scheduler.SchedulerService" point="schedule">
+    <schedule id="docucentralReviewSweep">
+      <eventId>docucentralReviewSweep</eventId>
+      <username>Administrator</username>
+      <cronExpression>0 15 2 * * ?</cronExpression>
+    </schedule>
+  </extension>
+
+  <!-- ==================================================================
+       Page providers used by the DocuCentral dashboard
+       ================================================================== -->
+  <extension target="org.nuxeo.ecm.platform.query.api.PageProviderService" point="providers">
+
+    <coreQueryPageProvider name="DOCUCENTRAL_BY_STATUS">
+      <pattern>
+        SELECT * FROM DCControlledDocument
+        WHERE ecm:currentLifeCycleState = ?
+        AND ecm:isVersion = 0 AND ecm:isTrashed = 0
+      </pattern>
+      <parameter>lifeCycleState</parameter>
+      <sort column="dc:modified" ascending="false"/>
+      <pageSize>20</pageSize>
+    </coreQueryPageProvider>
+
+    <coreQueryPageProvider name="DOCUCENTRAL_MY_QUEUE">
+      <pattern quoteParameters="false">
+        SELECT * FROM DCControlledDocument
+        WHERE ecm:currentLifeCycleState IN ('draft', 'review')
+        AND (dcx:owner = '?' OR dcx:reviewers = '?')
+        AND ecm:isVersion = 0 AND ecm:isTrashed = 0
+      </pattern>
+      <parameter>#{currentUser.name}</parameter>
+      <parameter>#{currentUser.name}</parameter>
+      <sort column="dc:modified" ascending="false"/>
+      <pageSize>20</pageSize>
+    </coreQueryPageProvider>
+
+    <coreQueryPageProvider name="DOCUCENTRAL_OVERDUE_REVIEW">
+      <pattern>
+        SELECT * FROM DCControlledDocument
+        WHERE ecm:currentLifeCycleState = 'published'
+        AND dcx:nextReviewDate &lt; DATE '?'
+        AND ecm:isVersion = 0 AND ecm:isTrashed = 0
+      </pattern>
+      <parameter>today</parameter>
+      <sort column="dcx:nextReviewDate" ascending="true"/>
+      <pageSize>20</pageSize>
+    </coreQueryPageProvider>
+
+  </extension>
+
+</component>

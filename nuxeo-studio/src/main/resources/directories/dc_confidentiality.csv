@@ -1,0 +1,5 @@
+"id","label","obsolete","ordering"
+"PUBLIC","label.dc.conf.public","0","10"
+"INTERNAL","label.dc.conf.internal","0","20"
+"CONFIDENTIAL","label.dc.conf.confidential","0","30"
+"RESTRICTED","label.dc.conf.restricted","0","40"

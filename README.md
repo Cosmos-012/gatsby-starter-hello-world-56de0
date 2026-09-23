@@ -1,8 +1,33 @@
-# Nuxeo Studio Local Setup — Community Cookbook
+# DocuCentral — Controlled Document Management on Nuxeo
 
-Local development environment for using the
+A controlled-document MVP (policies, procedures, contracts) plus the local
+development environment it is built in, using the
 [Nuxeo Studio Community Cookbook](https://github.com/nuxeo/nuxeo-studio-community-cookbook)
 with your local Nuxeo Platform server.
+
+| Document | What it covers |
+|---|---|
+| [`nuxeo-studio/docs/DOCUCENTRAL.md`](nuxeo-studio/docs/DOCUCENTRAL.md) | MVP scope, content model, lifecycle, roles, runbook, KPIs, roadmap |
+| [`nuxeo-studio/docs/AUDIT.md`](nuxeo-studio/docs/AUDIT.md) | Pre-MVP audit findings and what was fixed |
+| This file | Cookbook tooling and module reference |
+
+## DocuCentral in one minute
+
+```bash
+cd nuxeo-studio
+./scripts/check-server.sh          # is Nuxeo up at localhost:8080?
+./scripts/validate.sh              # offline package check (no server needed)
+./scripts/deploy.sh                # build + deploy + hot reload
+./scripts/docucentral-seed.sh      # groups, department libraries, demo docs
+./scripts/docucentral-smoke-test.sh  # end-to-end lifecycle verification
+```
+
+DocuCentral adds a `DCControlledDocument` type with governance metadata, a
+five-state lifecycle (draft → review → approved → published → obsolete) with
+server-side guard rails, contributed `DCReview` / `DCApprove` permissions, a
+governance dashboard, and a nightly overdue-review sweep. It ships as XML and
+Web UI resources inside the existing Maven bundle — no Java, so it builds
+offline and hot-reloads in dev mode.
 
 ## Prerequisites
 
@@ -18,22 +43,31 @@ with your local Nuxeo Platform server.
 ```
 nuxeo-studio/
 ├── config/
-│   └── nuxeo-local.properties    # Local server connection settings
-├── modules/                       # Downloaded cookbook modules (git-ignored)
-│   ├── workflow-status/
-│   ├── user-group-management/
-│   └── ...
+│   └── nuxeo-local.properties        # Local server connection settings
+├── docs/
+│   ├── DOCUCENTRAL.md                # MVP specification and runbook
+│   └── AUDIT.md                      # Pre-MVP audit findings
+├── modules/                          # Downloaded cookbook modules
 ├── scripts/
-│   ├── fetch-module.sh           # Download any cookbook module
-│   ├── deploy.sh                 # Build + hot-reload to local Nuxeo
-│   ├── check-server.sh           # Verify Nuxeo server is reachable
-│   └── import-studio-xml.sh     # Import XML via REST API
-├── src/
-│   └── main/resources/
-│       ├── META-INF/MANIFEST.MF
-│       └── OSGI-INF/
-│           └── cookbook-contrib.xml   # Your XML contributions
-└── pom.xml                       # Maven project
+│   ├── fetch-module.sh               # Download any cookbook module
+│   ├── import-studio-xml.sh          # Merge a module's XML into the bundle
+│   ├── validate.sh                   # Offline package validation (CI gate)
+│   ├── deploy.sh                     # Validate + build + deploy + hot reload
+│   ├── check-server.sh               # Server reachability + package presence
+│   ├── docucentral-seed.sh           # Seed groups, libraries, demo documents
+│   └── docucentral-smoke-test.sh     # End-to-end lifecycle verification
+├── src/main/resources/
+│   ├── META-INF/MANIFEST.MF          # Declares every Nuxeo component
+│   ├── OSGI-INF/
+│   │   ├── cookbook-contrib.xml      # Imported cookbook contributions
+│   │   ├── docucentral-core-contrib.xml        # Model, vocabularies, lifecycle
+│   │   ├── docucentral-automation-contrib.xml  # Operations, events, queries
+│   │   └── docucentral-ui-contrib.xml          # Web UI registration
+│   ├── schemas/docucentral.xsd       # dcx: governance metadata
+│   ├── directories/*.csv             # Department / class / confidentiality
+│   ├── i18n/messages.json            # Web UI labels
+│   └── ui/                           # Polymer elements
+└── pom.xml                           # Maven project (no Java, builds offline)
 ```
 
 ---
@@ -67,6 +101,20 @@ Then restart Nuxeo once to apply.
 cd nuxeo-studio
 ./scripts/check-server.sh
 ```
+
+### 3b. Validate Before Deploying
+
+`validate.sh` needs no server and is the fastest way to catch a broken
+contribution:
+
+```bash
+./scripts/validate.sh
+```
+
+It checks XML well-formedness, JSON and vocabulary CSV integrity, that every
+component named in `MANIFEST.MF` exists on disk, that `<require>` targets
+resolve, and that every Web UI import declares a `dom-module`. `deploy.sh`
+runs it automatically and aborts on failure.
 
 ### 4. Browse and Fetch a Cookbook Module
 
@@ -103,10 +151,15 @@ Each module has two parts — **Modeler** (backend XML) and **Designer** (fronte
    ```
 3. Designer HTML files go to: `$NUXEO_HOME/nxserver/nuxeo.war/ui/`
 
-#### Option C — REST API Import
+#### Option C — Merge a Module Into the Bundle
+
+XML extensions cannot be registered at runtime over REST, so this script merges
+a module's modeler XML into the bundle and registers it in the manifest:
 
 ```bash
-./scripts/import-studio-xml.sh workflow-status
+./scripts/import-studio-xml.sh --dry-run workflow-status   # preview
+./scripts/import-studio-xml.sh workflow-status             # write + register
+./scripts/deploy.sh
 ```
 
 ---

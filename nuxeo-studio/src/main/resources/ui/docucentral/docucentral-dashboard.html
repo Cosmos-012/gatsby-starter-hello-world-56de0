@@ -1,0 +1,117 @@
+<!--
+  DocuCentral - governance dashboard.
+  Three operational views backed by the page providers contributed in
+  docucentral-automation-contrib.xml.
+-->
+<dom-module id="docucentral-dashboard">
+  <template>
+    <style include="docucentral-styles nuxeo-styles">
+      :host { display: block; padding: 16px; }
+      .dc-kpis {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+      .dc-kpi {
+        background: var(--nuxeo-box, #fff);
+        border: 1px solid var(--nuxeo-border, #e6e9ef);
+        border-radius: 4px;
+        padding: 12px 16px;
+      }
+      .dc-kpi .value { font-size: 2rem; font-weight: 700; line-height: 1.1; }
+      .dc-kpi .label { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+      .dc-kpi.alert .value { color: #b03030; }
+    </style>
+
+    <nuxeo-page-provider id="myQueue" provider="DOCUCENTRAL_MY_QUEUE"
+                         page-size="20" entries="{{myQueue}}"
+                         enrichers="permissions"></nuxeo-page-provider>
+
+    <nuxeo-page-provider id="inReview" provider="DOCUCENTRAL_BY_STATUS"
+                         page-size="20" params="[[_params('review')]]"
+                         entries="{{inReview}}"></nuxeo-page-provider>
+
+    <nuxeo-page-provider id="overdue" provider="DOCUCENTRAL_OVERDUE_REVIEW"
+                         page-size="20" entries="{{overdue}}"></nuxeo-page-provider>
+
+    <h2>[[i18n('label.docucentral.dashboard')]]</h2>
+
+    <div class="dc-kpis">
+      <div class="dc-kpi">
+        <div class="value">[[_count(myQueue)]]</div>
+        <div class="label">[[i18n('label.docucentral.kpi.myQueue')]]</div>
+      </div>
+      <div class="dc-kpi">
+        <div class="value">[[_count(inReview)]]</div>
+        <div class="label">[[i18n('label.docucentral.kpi.inReview')]]</div>
+      </div>
+      <div class="dc-kpi alert">
+        <div class="value">[[_count(overdue)]]</div>
+        <div class="label">[[i18n('label.docucentral.kpi.overdue')]]</div>
+      </div>
+    </div>
+
+    <div class="dc-section-title">[[i18n('label.docucentral.kpi.myQueue')]]</div>
+    <nuxeo-data-table items="[[myQueue]]" empty-label="[[i18n('label.docucentral.empty')]]">
+      <nuxeo-data-table-column name="[[i18n('label.docucentral.reference')]]" flex="60">
+        <template>[[item.properties.dcx:reference]]</template>
+      </nuxeo-data-table-column>
+      <nuxeo-data-table-column name="[[i18n('label.dublincore.title')]]" flex="140">
+        <template>[[item.title]]</template>
+      </nuxeo-data-table-column>
+      <nuxeo-data-table-column name="[[i18n('label.docucentral.status')]]" flex="50">
+        <template><span class$="dc-badge [[item.state]]">[[item.state]]</span></template>
+      </nuxeo-data-table-column>
+    </nuxeo-data-table>
+
+    <div class="dc-section-title">[[i18n('label.docucentral.kpi.overdue')]]</div>
+    <nuxeo-data-table items="[[overdue]]" empty-label="[[i18n('label.docucentral.empty')]]">
+      <nuxeo-data-table-column name="[[i18n('label.docucentral.reference')]]" flex="60">
+        <template>[[item.properties.dcx:reference]]</template>
+      </nuxeo-data-table-column>
+      <nuxeo-data-table-column name="[[i18n('label.dublincore.title')]]" flex="140">
+        <template>[[item.title]]</template>
+      </nuxeo-data-table-column>
+      <nuxeo-data-table-column name="[[i18n('label.docucentral.nextReviewDate')]]" flex="60">
+        <template><span class="dc-overdue">[[item.properties.dcx:nextReviewDate]]</span></template>
+      </nuxeo-data-table-column>
+    </nuxeo-data-table>
+  </template>
+
+  <script>
+    Polymer({
+      is: 'docucentral-dashboard',
+      behaviors: [Nuxeo.I18nBehavior],
+      properties: {
+        myQueue: { type: Array, value: function () { return []; } },
+        inReview: { type: Array, value: function () { return []; } },
+        overdue: { type: Array, value: function () { return []; } },
+        visible: { type: Boolean, observer: '_visibleChanged' }
+      },
+
+      _params: function (state) {
+        return [state];
+      },
+
+      _count: function (entries) {
+        return (entries && entries.length) || 0;
+      },
+
+      _visibleChanged: function (visible) {
+        if (visible) {
+          this.refresh();
+        }
+      },
+
+      refresh: function () {
+        ['#myQueue', '#inReview', '#overdue'].forEach(function (id) {
+          var pp = this.$$(id);
+          if (pp) {
+            pp.fetch();
+          }
+        }.bind(this));
+      }
+    });
+  </script>
+</dom-module>

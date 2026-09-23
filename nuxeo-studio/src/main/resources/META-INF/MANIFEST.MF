@@ -1,6 +1,9 @@
 Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
-Bundle-Name: Nuxeo Studio Local - Community Cookbook
+Bundle-Name: DocuCentral - Nuxeo Studio Local
 Bundle-SymbolicName: com.project.nuxeo.studio-local
 Bundle-Version: 1.0.0.SNAPSHOT
-Nuxeo-Component: OSGI-INF/cookbook-contrib.xml
+Nuxeo-Component: OSGI-INF/cookbook-contrib.xml,
+ OSGI-INF/docucentral-core-contrib.xml,
+ OSGI-INF/docucentral-automation-contrib.xml,
+ OSGI-INF/docucentral-ui-contrib.xml

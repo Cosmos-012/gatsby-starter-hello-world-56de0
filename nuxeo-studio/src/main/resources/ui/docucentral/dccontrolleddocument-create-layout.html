@@ -1,0 +1,44 @@
+<!-- DocuCentral - creation layout for DCControlledDocument -->
+<dom-module id="nuxeo-dccontrolleddocument-create-layout">
+  <template>
+    <style include="docucentral-styles nuxeo-styles"></style>
+
+    <nuxeo-input role="widget" value="{{document.properties.dc:title}}"
+                 label="[[i18n('label.dublincore.title')]]" required
+                 autofocus name="title"></nuxeo-input>
+
+    <nuxeo-textarea role="widget" value="{{document.properties.dc:description}}"
+                    label="[[i18n('label.dublincore.description')]]"></nuxeo-textarea>
+
+    <div class="dc-section-title">[[i18n('label.docucentral.classification')]]</div>
+    <div class="dc-grid">
+      <nuxeo-directory-suggestion role="widget" directory-name="dc_department"
+                                  value="{{document.properties.dcx:department}}"
+                                  label="[[i18n('label.docucentral.department')]]"
+                                  min-chars="0" required></nuxeo-directory-suggestion>
+
+      <nuxeo-directory-suggestion role="widget" directory-name="dc_docclass"
+                                  value="{{document.properties.dcx:documentClass}}"
+                                  label="[[i18n('label.docucentral.documentClass')]]"
+                                  min-chars="0" required></nuxeo-directory-suggestion>
+
+      <nuxeo-directory-suggestion role="widget" directory-name="dc_confidentiality"
+                                  value="{{document.properties.dcx:confidentiality}}"
+                                  label="[[i18n('label.docucentral.confidentiality')]]"
+                                  min-chars="0"></nuxeo-directory-suggestion>
+    </div>
+
+    <nuxeo-dropzone role="widget" value="{{document.properties.file:content}}"
+                    label="[[i18n('label.docucentral.file')]]"></nuxeo-dropzone>
+  </template>
+
+  <script>
+    Polymer({
+      is: 'nuxeo-dccontrolleddocument-create-layout',
+      behaviors: [Nuxeo.LayoutBehavior],
+      properties: {
+        document: { type: Object }
+      }
+    });
+  </script>
+</dom-module>

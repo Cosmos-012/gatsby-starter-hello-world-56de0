@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  DocuCentral - controlled document metadata schema
+  prefix: dcx   (dc: is already taken by the Dublin Core schema)
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:nxs="http://www.nuxeo.org/ecm/schemas/docucentral/"
+           targetNamespace="http://www.nuxeo.org/ecm/schemas/docucentral/">
+
+  <!-- Identification -->
+  <xs:element name="reference" type="xs:string"/>          <!-- auto-generated: DC-<DEPT>-<YYYY>-<NNNN> -->
+  <xs:element name="documentClass" type="xs:string"/>      <!-- vocabulary: dc_docclass -->
+  <xs:element name="department" type="xs:string"/>          <!-- vocabulary: dc_department -->
+  <xs:element name="confidentiality" type="xs:string"/>     <!-- vocabulary: dc_confidentiality -->
+
+  <!-- Ownership and accountability -->
+  <xs:element name="owner" type="xs:string"/>               <!-- user id of the accountable owner -->
+  <xs:element name="reviewers">
+    <xs:simpleType>
+      <xs:list itemType="xs:string"/>
+    </xs:simpleType>
+  </xs:element>
+  <xs:element name="approver" type="xs:string"/>
+
+  <!-- Governance dates -->
+  <xs:element name="effectiveDate" type="xs:date"/>
+  <xs:element name="nextReviewDate" type="xs:date"/>
+  <xs:element name="retentionYears" type="xs:long"/>
+
+  <!-- Audit trail (maintained by automation, read-only in the UI) -->
+  <xs:element name="submittedBy" type="xs:string"/>
+  <xs:element name="submittedOn" type="xs:date"/>
+  <xs:element name="approvedBy" type="xs:string"/>
+  <xs:element name="approvedOn" type="xs:date"/>
+  <xs:element name="rejectionReason" type="xs:string"/>
+
+</xs:schema>

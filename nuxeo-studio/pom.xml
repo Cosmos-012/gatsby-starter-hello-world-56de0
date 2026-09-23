@@ -9,8 +9,8 @@
   <version>1.0.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
-  <name>Nuxeo Studio Local - Community Cookbook</name>
-  <description>Local Nuxeo Studio setup using community cookbook modules</description>
+  <name>DocuCentral - Nuxeo Studio Local</name>
+  <description>DocuCentral controlled-document MVP, built on the Nuxeo Studio Community Cookbook</description>
 
   <repositories>
     <repository>
@@ -29,43 +29,34 @@
     <nuxeo.version>2023.10.0</nuxeo.version>
   </properties>
 
-  <dependencies>
-    <!-- Nuxeo Core -->
-    <dependency>
-      <groupId>org.nuxeo.ecm.core</groupId>
-      <artifactId>nuxeo-core</artifactId>
-      <version>${nuxeo.version}</version>
-      <scope>provided</scope>
-    </dependency>
-    <!-- Nuxeo Automation Core -->
-    <dependency>
-      <groupId>org.nuxeo.ecm.automation</groupId>
-      <artifactId>nuxeo-automation-core</artifactId>
-      <version>${nuxeo.version}</version>
-      <scope>provided</scope>
-    </dependency>
-    <!-- Nuxeo Platform -->
-    <dependency>
-      <groupId>org.nuxeo.ecm.platform</groupId>
-      <artifactId>nuxeo-platform-webapp-core</artifactId>
-      <version>${nuxeo.version}</version>
-      <scope>provided</scope>
-    </dependency>
-  </dependencies>
+  <!--
+    No dependencies: this bundle ships only XML contributions, Web UI elements
+    and vocabulary data — there is no Java source to compile. That keeps the
+    build fully offline and reproducible.
+
+    If you add Java classes later, re-add the Nuxeo artifacts with
+    <scope>provided</scope> and make sure the build machine can reach
+    https://packages.nuxeo.com/repository/maven-public/:
+
+      org.nuxeo.ecm.core:nuxeo-core:${nuxeo.version}
+      org.nuxeo.ecm.automation:nuxeo-automation-core:${nuxeo.version}
+      org.nuxeo.ecm.platform:nuxeo-platform-webapp-core:${nuxeo.version}
+  -->
 
   <build>
     <plugins>
-      <!-- Package as OSGI bundle -->
+      <!-- Package as a Nuxeo bundle using the checked-in MANIFEST.MF.
+           maven-bundle-plugin is deliberately not used: it only activates for
+           <packaging>bundle</packaging>, so the Nuxeo-Component header was
+           silently missing from the JAR. -->
       <plugin>
-        <groupId>org.apache.felix</groupId>
-        <artifactId>maven-bundle-plugin</artifactId>
-        <version>5.1.9</version>
-        <extensions>true</extensions>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.1</version>
         <configuration>
-          <instructions>
-            <Bundle-SymbolicName>com.project.nuxeo.studio-local</Bundle-SymbolicName>
-            <Nuxeo-Component>OSGI-INF/cookbook-contrib.xml</Nuxeo-Component>
-          </instructions>
+          <archive>
+            <manifestFile>src/main/resources/META-INF/MANIFEST.MF</manifestFile>
+          </archive>
         </configuration>
       </plugin>
       <!-- Copy resources to deployment folder via: mvn process-resources -->

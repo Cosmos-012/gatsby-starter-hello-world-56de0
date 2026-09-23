@@ -1,0 +1,8 @@
+"id","label","obsolete","ordering"
+"PROC","label.dc.dept.procurement","0","10"
+"FIN","label.dc.dept.finance","0","20"
+"LEG","label.dc.dept.legal","0","30"
+"IT","label.dc.dept.it","0","40"
+"OPS","label.dc.dept.operations","0","50"
+"HR","label.dc.dept.hr","0","60"
+"QHSE","label.dc.dept.qhse","0","70"

@@ -1,0 +1,173 @@
+<?xml version="1.0"?>
+<!--
+  DocuCentral MVP - core content model
+  Schemas, document types, vocabularies, lifecycle and permissions.
+-->
+<component name="com.project.nuxeo.docucentral.core">
+
+  <!-- ==================================================================
+       1. Schema
+       ================================================================== -->
+  <extension target="org.nuxeo.ecm.core.schema.TypeService" point="schema">
+    <schema name="docucentral" src="schemas/docucentral.xsd" prefix="dcx"/>
+  </extension>
+
+  <!-- ==================================================================
+       2. Facets and document types
+       ================================================================== -->
+  <extension target="org.nuxeo.ecm.core.schema.TypeService" point="doctype">
+
+    <!-- Facet applied to every DocuCentral-governed object -->
+    <facet name="DCGoverned">
+      <schema name="docucentral"/>
+    </facet>
+
+    <!-- The controlled document: a File with governance metadata -->
+    <doctype name="DCControlledDocument" extends="File">
+      <facet name="DCGoverned"/>
+      <facet name="Versionable"/>
+      <facet name="Commentable"/>
+      <facet name="Publishable"/>
+      <facet name="HasRelatedText"/>
+    </doctype>
+
+    <!-- Container for a department's document set -->
+    <doctype name="DCLibrary" extends="Folder">
+      <facet name="DCGoverned"/>
+      <facet name="NXTag"/>
+      <subtypes>
+        <type>DCControlledDocument</type>
+        <type>DCLibrary</type>
+      </subtypes>
+    </doctype>
+
+    <!-- Allow libraries to be created inside standard workspaces -->
+    <doctype name="Workspace" extends="Folder" append="true">
+      <subtypes>
+        <type>DCLibrary</type>
+        <type>DCControlledDocument</type>
+      </subtypes>
+    </doctype>
+
+  </extension>
+
+  <!-- ==================================================================
+       3. Vocabularies (department / class / confidentiality)
+       ================================================================== -->
+  <extension target="org.nuxeo.ecm.directory.GenericDirectory" point="directories">
+
+    <directory name="dc_department">
+      <schema>vocabulary</schema>
+      <types><type>system</type></types>
+      <table>dc_department</table>
+      <idField>id</idField>
+      <dataFile>directories/dc_department.csv</dataFile>
+      <createTablePolicy>on_missing_columns</createTablePolicy>
+    </directory>
+
+    <directory name="dc_docclass">
+      <schema>vocabulary</schema>
+      <types><type>system</type></types>
+      <table>dc_docclass</table>
+      <idField>id</idField>
+      <dataFile>directories/dc_docclass.csv</dataFile>
+      <createTablePolicy>on_missing_columns</createTablePolicy>
+    </directory>
+
+    <directory name="dc_confidentiality">
+      <schema>vocabulary</schema>
+      <types><type>system</type></types>
+      <table>dc_confidentiality</table>
+      <idField>id</idField>
+      <dataFile>directories/dc_confidentiality.csv</dataFile>
+      <createTablePolicy>on_missing_columns</createTablePolicy>
+    </directory>
+
+  </extension>
+
+  <!-- ==================================================================
+       4. Lifecycle: draft -> review -> approved -> published -> obsolete
+       ================================================================== -->
+  <extension target="org.nuxeo.ecm.core.lifecycle.LifeCycleService" point="lifecycle">
+
+    <lifecycle name="docucentral_lifecycle" defaultInitial="draft">
+
+      <transitions>
+        <transition name="to_review"    destinationState="review"/>
+        <transition name="to_approved"  destinationState="approved"/>
+        <transition name="to_published" destinationState="published"/>
+        <transition name="to_obsolete"  destinationState="obsolete"/>
+        <transition name="back_to_draft" destinationState="draft"/>
+      </transitions>
+
+      <states>
+        <state name="draft" description="Author is working on the document" initial="true">
+          <transitions>
+            <transition>to_review</transition>
+            <transition>to_obsolete</transition>
+          </transitions>
+        </state>
+
+        <state name="review" description="Under review by the assigned reviewers">
+          <transitions>
+            <transition>to_approved</transition>
+            <transition>back_to_draft</transition>
+          </transitions>
+        </state>
+
+        <state name="approved" description="Approved, not yet in force">
+          <transitions>
+            <transition>to_published</transition>
+            <transition>back_to_draft</transition>
+          </transitions>
+        </state>
+
+        <state name="published" description="In force and visible to readers">
+          <transitions>
+            <transition>to_obsolete</transition>
+            <transition>back_to_draft</transition>
+          </transitions>
+        </state>
+
+        <state name="obsolete" description="Superseded or withdrawn">
+          <transitions>
+            <transition>back_to_draft</transition>
+          </transitions>
+        </state>
+      </states>
+
+    </lifecycle>
+  </extension>
+
+  <extension target="org.nuxeo.ecm.core.lifecycle.LifeCycleService" point="types">
+    <types>
+      <type name="DCControlledDocument" default="docucentral_lifecycle"/>
+    </types>
+  </extension>
+
+  <!-- ==================================================================
+       5. Permissions
+       ================================================================== -->
+  <extension target="org.nuxeo.ecm.core.security.PermissionProvider" point="permissions">
+
+    <!-- Reviewers may comment and request changes, but not approve -->
+    <permission name="DCReview">
+      <include>Read</include>
+      <include>ReadWrite</include>
+    </permission>
+
+    <!-- Approvers may move a document to approved / published -->
+    <permission name="DCApprove">
+      <include>Read</include>
+      <include>ReadWrite</include>
+      <include>DCReview</include>
+    </permission>
+
+  </extension>
+
+  <extension target="org.nuxeo.ecm.core.security.PermissionProvider" point="visiblePermissions">
+    <visiblePermission permission="DCReview" show="true" order="90"/>
+    <visiblePermission permission="DCApprove" show="true" order="91"/>
+  </extension>
+
+</component>

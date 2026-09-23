@@ -1,0 +1,39 @@
+<!-- Shared styles for DocuCentral elements -->
+<dom-module id="docucentral-styles">
+  <template>
+    <style>
+      .dc-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 8px 16px;
+      }
+      .dc-section-title {
+        font-weight: 700;
+        margin: 16px 0 4px;
+        border-bottom: 1px solid var(--nuxeo-border, #e6e9ef);
+        padding-bottom: 4px;
+      }
+      .dc-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: .75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        color: #fff;
+      }
+      .dc-badge.draft      { background: #8d97a5; }
+      .dc-badge.review     { background: #d08000; }
+      .dc-badge.approved   { background: #2a7de1; }
+      .dc-badge.published  { background: #1f8a4c; }
+      .dc-badge.obsolete   { background: #b03030; }
+      .dc-reference {
+        font-family: "Roboto Mono", monospace;
+        font-size: .9rem;
+        color: var(--nuxeo-text-default, #3a3a3a);
+      }
+      .dc-overdue { color: #b03030; font-weight: 700; }
+    </style>
+  </template>
+</dom-module>
