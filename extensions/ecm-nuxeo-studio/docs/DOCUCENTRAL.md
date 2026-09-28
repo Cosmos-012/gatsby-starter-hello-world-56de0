@@ -139,7 +139,7 @@ without `DCApprove`.
 
 | # | Step | Command | Expected |
 |---|---|---|---|
-| 1 | Point at your server | edit `config/nuxeo-local.properties` | `NUXEO_URL`, `NUXEO_HOME` set |
+| 1 | Point at your server | `cp config/nuxeo-local.properties.template config/nuxeo-local.properties`, then edit it | `NUXEO_URL`, `NUXEO_HOME` set (the copy is git-ignored, safe to hold real credentials) |
 | 2 | Enable dev mode | add `org.nuxeo.dev=true` to `nuxeo.conf`, restart once | hot reload available |
 | 3 | Check connectivity | `./scripts/check-server.sh` | `[OK] Server is running` |
 | 4 | Validate the package | `./scripts/validate.sh` | `23 passed, 0 failed` |

@@ -2,6 +2,10 @@
 extensions/ecm-nuxeo-studio/target/
 extensions/ecm-nuxeo-studio/*.jar
 
+# Local Nuxeo connection config — copied from the .template, may hold
+# real credentials/tokens once edited. Never commit the real file.
+extensions/ecm-nuxeo-studio/config/nuxeo-local.properties
+
 # Node / frontend build output
 node_modules/
 .next/
@@ -16,9 +20,6 @@ backend/bin/
 # Local discovery output (may contain host paths/credentials)
 docs/discovery/*.local.json
 docs/discovery/*.local.md
-
-# Runtime temp
-/tmp/nx_*.txt
 
 # Backups (large binaries, never committed)
 backups/*

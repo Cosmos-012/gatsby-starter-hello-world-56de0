@@ -1,6 +1,16 @@
 # ============================================================
-# Local Nuxeo Server Connection Configuration
-# Edit these values to match your local Nuxeo setup
+# Local Nuxeo Server Connection Configuration — TEMPLATE
+#
+# Copy this file to nuxeo-local.properties (untracked, see .gitignore)
+# and edit the copy to match your local Nuxeo setup:
+#
+#   cp config/nuxeo-local.properties.template config/nuxeo-local.properties
+#
+# The values below are Nuxeo's own well-known local-dev defaults
+# (Administrator/Administrator), not a secret for your environment.
+# If you change the admin password or set a real Connect token, that
+# copy must never be committed — it is git-ignored for exactly that
+# reason.
 # ============================================================
 
 # Base URL of your local Nuxeo server

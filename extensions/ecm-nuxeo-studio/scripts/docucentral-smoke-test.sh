@@ -16,6 +16,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 CONFIG_FILE="$PROJECT_DIR/config/nuxeo-local.properties"
 
+if [[ ! -f "$CONFIG_FILE" ]]; then
+  echo "Error: config file not found at $CONFIG_FILE"
+  echo "First run: cp config/nuxeo-local.properties.template config/nuxeo-local.properties"
+  echo "then edit it to match your local Nuxeo setup."
+  exit 1
+fi
+
 # shellcheck disable=SC1090
 source <(grep -v '^#' "$CONFIG_FILE" | grep -v '^$')
 

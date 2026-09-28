@@ -15,6 +15,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 MODULES_DIR="$PROJECT_DIR/modules"
 
+# Per-invocation scratch dir — avoids concurrent runs corrupting each
+# other's file lists (previously fixed paths under /tmp).
+WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/nx-fetch-module.XXXXXX")"
+trap 'rm -rf "$WORK_DIR"' EXIT
+NX_FILES="$WORK_DIR/files.txt"
+NX_DIRS="$WORK_DIR/dirs.txt"
+NX_VISITED="$WORK_DIR/visited.txt"
+
 COOKBOOK_REPO="nuxeo/nuxeo-studio-community-cookbook"
 COOKBOOK_BRANCH="master"
 GITHUB_BASE="https://github.com/$COOKBOOK_REPO/tree/$COOKBOOK_BRANCH"
@@ -102,9 +110,9 @@ list_modules() {
   echo "        $0 --all"
 }
 
-# Scrape a GitHub tree page and return two arrays (by writing to temp files):
-#   /tmp/nx_files.txt  — repo-relative file paths
-#   /tmp/nx_dirs.txt   — repo-relative directory paths
+# Scrape a GitHub tree page and append to this invocation's scratch files:
+#   $NX_FILES  — repo-relative file paths
+#   $NX_DIRS   — repo-relative directory paths
 scrape_tree() {
   local repo_path="$1"
   local url="$GITHUB_BASE/$repo_path"
@@ -114,23 +122,23 @@ scrape_tree() {
 
   echo "$html" | \
     grep -oP "(?<=href=\"/$COOKBOOK_REPO/)blob/$COOKBOOK_BRANCH/[^\"?#]+" | \
-    sed "s|blob/$COOKBOOK_BRANCH/||" >> /tmp/nx_files.txt
+    sed "s|blob/$COOKBOOK_BRANCH/||" >> "$NX_FILES"
 
   echo "$html" | \
     grep -oP "(?<=href=\"/$COOKBOOK_REPO/)tree/$COOKBOOK_BRANCH/[^\"?#]+" | \
     sed "s|tree/$COOKBOOK_BRANCH/||" | \
     grep -v "^modules/nuxeo$" | \
     grep -v "^modules$" | \
-    grep "^$repo_path/" >> /tmp/nx_dirs.txt || true
+    grep "^$repo_path/" >> "$NX_DIRS" || true
 }
 
 # Recursively collect all file paths for a module
 collect_files() {
   local module_path="$1"
 
-  > /tmp/nx_files.txt
-  > /tmp/nx_dirs.txt
-  > /tmp/nx_visited.txt
+  > "$NX_FILES"
+  > "$NX_DIRS"
+  > "$NX_VISITED"
 
   local queue=("$module_path")
 
@@ -139,24 +147,24 @@ collect_files() {
     queue=("${queue[@]:1}")
 
     # Skip if already visited
-    if grep -qxF "$current" /tmp/nx_visited.txt 2>/dev/null; then
+    if grep -qxF "$current" "$NX_VISITED" 2>/dev/null; then
       continue
     fi
-    echo "$current" >> /tmp/nx_visited.txt
+    echo "$current" >> "$NX_VISITED"
 
     scrape_tree "$current"
 
     # Add newly discovered directories to the queue
     while IFS= read -r dir; do
-      if [[ -n "$dir" ]] && ! grep -qxF "$dir" /tmp/nx_visited.txt 2>/dev/null; then
+      if [[ -n "$dir" ]] && ! grep -qxF "$dir" "$NX_VISITED" 2>/dev/null; then
         queue+=("$dir")
       fi
-    done < /tmp/nx_dirs.txt
-    > /tmp/nx_dirs.txt  # Clear for next iteration
+    done < "$NX_DIRS"
+    > "$NX_DIRS"  # Clear for next iteration
   done
 
   # Return unique, sorted file list under module_path
-  sort -u /tmp/nx_files.txt | grep "^$module_path/"
+  sort -u "$NX_FILES" | grep "^$module_path/"
 }
 
 fetch_module() {

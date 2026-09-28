@@ -5,5 +5,9 @@ structural choices, as distinct from `docs/02-architecture.md` (the
 *as-found* Onfinity architecture report) and the root `ARCHITECTURE.md`
 (the *target* architecture).
 
-Empty until Phase 1/3 produce a decision worth recording. When adding an
-ADR, use the format `NNNN-short-title.md` (e.g. `0001-api-first-boundary.md`).
+| ADR | Decision |
+|---|---|
+| [0001](./0001-api-first-boundary.md) | API-first boundary — the frontend never talks to Onfinity/PostgreSQL directly, only the Roznama API does |
+| [0002](./0002-ecm-extension-pattern.md) | Extension pattern — govern an entity's lifecycle on top of the existing platform (schema + type + state machine + guards) instead of building bespoke infrastructure, as already proven by `extensions/ecm-nuxeo-studio` |
+
+New ADRs use the format `NNNN-short-title.md`.

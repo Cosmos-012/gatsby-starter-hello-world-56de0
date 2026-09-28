@@ -15,8 +15,8 @@ transport security (TLS), secrets storage, audit logging coverage.
 
 | Finding | Severity | Status |
 |---|---|---|
-| `config/nuxeo-local.properties` carries default admin credentials and a placeholder Connect token, and is tracked in git | Low (acceptable for a local-only default install) | **Open** — before any shared or non-local use: move to `.gitignore`, ship a `.template`, source real values from environment/secret store. See `extensions/ecm-nuxeo-studio/docs/AUDIT.md` (A9). |
+| `config/nuxeo-local.properties` carried default admin credentials and a placeholder Connect token, and was tracked in git | Low (acceptable for a local-only default install) | **Fixed** — split into a tracked `config/nuxeo-local.properties.template` and a git-ignored real `config/nuxeo-local.properties`; all scripts that read it fail with a clear setup instruction if it's missing. See `extensions/ecm-nuxeo-studio/docs/AUDIT.md` (A9). |
 
-This is exactly the class of issue Phase 10 (Security, `ROADMAP.md`) exists
-to close before productization — tracked here so it isn't rediscovered
-from scratch.
+This was exactly the class of issue Phase 10 (Security, `ROADMAP.md`)
+exists to close before productization — fixed here at low cost rather than
+carried forward as debt into that phase.
