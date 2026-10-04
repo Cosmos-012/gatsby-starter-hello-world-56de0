@@ -25,7 +25,7 @@ before(async () => {
   const admin = new pg.Client({ connectionString: ADMIN }); await admin.connect();
   await admin.query(`DROP DATABASE IF EXISTS ${DB}`); await admin.query(`CREATE DATABASE ${DB}`); await admin.end();
   const owner = new pg.Client({ connectionString: ADMIN.replace(/\/[^/]*$/, `/${DB}`) }); await owner.connect();
-  for (const f of ['001_foundation', '002_results_indicators', '004_arabic_search', '005_workflow', '006_dqa', '007_evidence']) await owner.query(readFileSync(new URL(`${f}.sql`, dir), 'utf8'));
+  for (const f of ['001_foundation', '002_results_indicators', '004_arabic_search', '005_workflow', '006_dqa', '007_evidence', '008_evaluations']) await owner.query(readFileSync(new URL(`${f}.sql`, dir), 'utf8'));
   await owner.query(`DROP ROLE IF EXISTS ned_dqa_login; CREATE ROLE ned_dqa_login LOGIN PASSWORD 'x' IN ROLE ned_app`);
   await owner.query(`INSERT INTO tenant (id,name) VALUES ('${T1}','A'),('${T2}','B')`);
   await owner.end();

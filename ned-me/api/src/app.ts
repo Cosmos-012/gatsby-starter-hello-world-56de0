@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type pg from 'pg';
 import type { Principal } from './auth.ts';
 import { withTenant } from './db.ts';
+import { registerEvaluations } from './evaluations.ts';
 import { registerEvidence } from './evidence.ts';
 import type { Storage } from './storage.ts';
 import { registerDqa } from './dqa-routes.ts';
@@ -103,6 +104,7 @@ export function buildApp(pool: pg.Pool, verify: Verify, storage?: Storage) {
 
   registerTracking(app, pool);
   registerDqa(app, pool);
+  registerEvaluations(app, pool);
   if (storage) registerEvidence(app, pool, storage);
   registerFramework(app, pool);
   return app;
