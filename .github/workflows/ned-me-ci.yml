@@ -18,6 +18,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: DB migrations + RLS tests (avec PostGIS)
         run: WITH_POSTGIS=1 PSQL_ADMIN="psql -h localhost -U postgres" ned-me/db/tests/run.sh
+      - name: Sauvegarde / restauration (intégrité, RLS, cloisonnement)
+        env: { PGHOST: localhost, PGUSER: postgres }
+        run: WITH_POSTGIS=1 PSQL_ADMIN="psql -h localhost -U postgres" ned-me/db/tests/backup_restore.sh
   api:
     runs-on: ubuntu-latest
     services:
@@ -33,6 +36,23 @@ jobs:
         with: { node-version: 22, cache: npm, cache-dependency-path: ned-me/api/package-lock.json }
       - run: npm ci && npm run typecheck && npm test
         working-directory: ned-me/api
+  stack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pile Docker Compose réelle (db + api + MinIO) et test de fumée de bout en bout
+        working-directory: ned-me/deploy
+        run: |
+          cp .env.example .env
+          sed -i 's/^DEV_JWT_SECRET=.*/DEV_JWT_SECRET=ci-only-secret-0123456789-abcdefghij/' .env
+          docker compose --env-file .env -f docker-compose.yml -f docker-compose.ci.yml up -d --build db minio minio-init api
+          ./smoke.sh
+      - name: Journaux et arrêt
+        if: always()
+        working-directory: ned-me/deploy
+        run: |
+          docker compose --env-file .env -f docker-compose.yml -f docker-compose.ci.yml logs --no-color db api minio-init | tail -150
+          docker compose --env-file .env -f docker-compose.yml -f docker-compose.ci.yml down -v
   compose:
     runs-on: ubuntu-latest
     steps:

@@ -1,0 +1,7 @@
+# Surcouche CI : expose MinIO sur l'hôte pour que les URL présignées soient utilisables par le test de fumée.
+services:
+  minio:
+    ports: ["127.0.0.1:9000:9000"]
+  api:
+    environment:
+      S3_PUBLIC_ENDPOINT: http://localhost:9000

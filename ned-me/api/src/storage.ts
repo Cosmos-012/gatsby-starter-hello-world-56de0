@@ -11,18 +11,22 @@ export interface Storage {
 
 const hexToB64 = (h: string) => Buffer.from(h, 'hex').toString('base64');
 
-export function s3Storage(o: { endpoint: string; region?: string; bucket: string; accessKeyId: string; secretAccessKey: string; expiresSeconds?: number }): Storage {
-  const s3 = new S3Client({ endpoint: o.endpoint, region: o.region ?? 'us-east-1', forcePathStyle: true,
-    credentials: { accessKeyId: o.accessKeyId, secretAccessKey: o.secretAccessKey } });
+export function s3Storage(o: { endpoint: string; publicEndpoint?: string; region?: string; bucket: string; accessKeyId: string; secretAccessKey: string; expiresSeconds?: number }): Storage {
+  const credentials = { accessKeyId: o.accessKeyId, secretAccessKey: o.secretAccessKey };
+  const base = { region: o.region ?? 'us-east-1', forcePathStyle: true, credentials };
+  const s3 = new S3Client({ ...base, endpoint: o.endpoint });                         // accès serveur (réseau interne)
+  // Les URL présignées sont consommées par le navigateur : elles doivent être signées pour l'adresse publique (la signature couvre l'hôte et le chemin,
+  // le proxy ne doit donc ni réécrire le chemin ni changer l'hôte). Sans adresse publique, on retombe sur l'adresse interne (dev local).
+  const signer = new S3Client({ ...base, endpoint: o.publicEndpoint ?? o.endpoint });
   const expiresIn = o.expiresSeconds ?? 300;
   return {
     async presignPut(key, { contentType, size, sha256Hex }) {
       const cmd = new PutObjectCommand({ Bucket: o.bucket, Key: key, ContentType: contentType, ContentLength: size,
         ...(sha256Hex ? { ChecksumSHA256: hexToB64(sha256Hex) } : {}) });
-      const url = await getSignedUrl(s3, cmd, { expiresIn, signableHeaders: new Set(['content-type', 'content-length']) });
+      const url = await getSignedUrl(signer, cmd, { expiresIn, signableHeaders: new Set(['content-type', 'content-length']) });
       return { url, headers: { 'content-type': contentType, ...(sha256Hex ? { 'x-amz-checksum-sha256': hexToB64(sha256Hex) } : {}) } };
     },
-    presignGet: (key, filename) => getSignedUrl(s3, new GetObjectCommand({ Bucket: o.bucket, Key: key,
+    presignGet: (key, filename) => getSignedUrl(signer, new GetObjectCommand({ Bucket: o.bucket, Key: key,
       ResponseContentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent(filename)}` }), { expiresIn }),
     async head(key) {
       try { const r = await s3.send(new HeadObjectCommand({ Bucket: o.bucket, Key: key })); return { size: Number(r.ContentLength ?? 0), contentType: r.ContentType }; }

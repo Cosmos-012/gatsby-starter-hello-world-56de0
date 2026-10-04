@@ -19,6 +19,9 @@
 | MapLibre GL JS | maplibre/maplibre-gl-js | BSD-3-Clause | Cartes | Dépendance | Non | Notice BSD | Faible | Non |
 | AWS SDK for JavaScript v3 (`@aws-sdk/client-s3`, presigner) | aws/aws-sdk-js-v3 | Apache-2.0 | Client S3 pour les preuves (MinIO, Garage, SeaweedFS…) | Dépendance (API S3 standard : le stockage reste interchangeable) | Non | NOTICE | Faible | Non |
 | Fastify / pg / jose / zod | fastify, node-postgres, panva/jose, colinhacks/zod | MIT | API, accès DB, JWT/OIDC, validation | Dépendances | Non | Notice MIT | Faible | Non (à confirmer au lockfile) |
+| @fastify/helmet, @fastify/rate-limit | fastify/fastify-helmet, fastify/fastify-rate-limit | MIT | En-têtes de sécurité, limitation de débit par IP | Dépendances | Non | Notice MIT | Faible | Non |
+| ExcelJS | exceljs/exceljs | MIT | Export Excel des rapports (RTL, bilingue) | Dépendance ; `overrides` uuid ≥ 11.1.1 (avis GHSA-w5hq-g745-h8pq) | Non | Notice MIT | Faible (0 vulnérabilité après override) | Non |
+| MinIO Client (mc) | minio/mc | AGPL-3.0 | Création du bucket au démarrage (conteneur ponctuel) | Service ponctuel, non lié au code | Non | AGPL | Faible | Oui (juridique, comme MinIO) |
 | Caddy | caddyserver/caddy | Apache-2.0 | Reverse proxy TLS | Service | Non | NOTICE | Faible | Non |
 
 Règle : Hikaya, Tangerine, Open Foris restent en « inspiration » jusqu'à vérification de licence documentée ici.

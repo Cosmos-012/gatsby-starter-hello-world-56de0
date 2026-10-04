@@ -1,4 +1,7 @@
-import Fastify from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
+import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type pg from 'pg';
 import type { Principal } from './auth.ts';
@@ -22,9 +25,32 @@ const Name = z.object({ fr: z.string().optional(), ar: z.string().optional(), en
   .refine((n) => n.fr || n.ar || n.en, 'at least one language required');
 const STATES = ['draft', 'submitted', 'review', 'validated', 'approved', 'published', 'archived'] as const;
 
-export function buildApp(pool: pg.Pool, verify: Verify, storage?: Storage) {
-  const app = Fastify({ logger: false });
+export interface AppOptions {
+  rateLimitMax?: number;          // requêtes / minute / IP (défaut 300)
+  bodyLimit?: number;             // octets (défaut 1 Mo)
+  trustProxy?: boolean;           // true derrière Caddy/Nginx : l'IP client vient de X-Forwarded-For
+  logger?: boolean;
+  logStream?: { write(msg: string): void };
+}
 
+export function buildApp(pool: pg.Pool, verify: Verify, storage?: Storage, opts: AppOptions = {}) {
+  const app = Fastify({
+    // L'en-tête Authorization n'est jamais journalisé.
+    logger: opts.logger || opts.logStream ? { level: 'info', redact: ['req.headers.authorization', 'req.headers.cookie'], ...(opts.logStream ? { stream: opts.logStream } : {}) } : false,
+    bodyLimit: opts.bodyLimit ?? 1_048_576,
+    trustProxy: opts.trustProxy ?? false,
+    genReqId: () => randomUUID(),
+  });
+  app.register(helmet, { hsts: { maxAge: 31_536_000, includeSubDomains: true } });
+  // Limite globale par IP ; /health exclu. Les 401 comptent aussi (freine le brute-force de jetons).
+  // global:false + hook racine posé via app.after() : le limiteur s'exécute AVANT l'authentification (sinon les 401 échappent au comptage).
+  // Les routes coûteuses ajoutent leur propre limite plus stricte via config.rateLimit.
+  app.register(rateLimit, { global: false, max: opts.rateLimitMax ?? 300, timeWindow: '1 minute', allowList: (req) => req.url === '/health' });
+  app.after(() => { app.addHook('onRequest', app.rateLimit()); });
+  app.addHook('onSend', async (req, reply) => { reply.header('x-request-id', req.id); });
+
+  // Routes montées dans un contexte enfant, chargé APRÈS le limiteur : @fastify/rate-limit ne protège que les routes déclarées après son chargement.
+  const mount = (app: FastifyInstance): void => {
   app.get('/health', async () => ({ ok: true }));
 
   app.addHook('onRequest', async (req, reply) => {
@@ -41,7 +67,10 @@ export function buildApp(pool: pg.Pool, verify: Verify, storage?: Storage) {
     const map: Record<string, number> = { '23514': 409, '42501': 403, '23503': 422, '23505': 409, '22P02': 400 };
     const code = map[err?.code];
     if (code) return reply.code(code).send({ error: err.message });
-    if (process.env.NED_DEBUG) console.error(err); return reply.code(500).send({ error: 'internal' });
+    // Erreurs client de Fastify (corps trop gros 413, JSON invalide 400, média non supporté 415…) : on conserve leur statut, sans détail interne.
+    if (typeof err?.statusCode === 'number' && err.statusCode >= 400 && err.statusCode < 500) return reply.code(err.statusCode).send({ error: err.code ?? 'bad_request' });
+    if (process.env.NED_DEBUG) console.error(err);
+    return reply.code(500).send({ error: 'internal' });
   });
 
   const need = (req: any, reply: any, ...roles: string[]) => {
@@ -115,5 +144,7 @@ export function buildApp(pool: pg.Pool, verify: Verify, storage?: Storage) {
   registerRisks(app, pool);
   if (storage) registerEvidence(app, pool, storage);
   registerFramework(app, pool);
+  };
+  app.register(async (inst) => { mount(inst); });
   return app;
 }

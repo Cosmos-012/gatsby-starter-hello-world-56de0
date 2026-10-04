@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type pg from 'pg';
 import { withTenant } from './db.ts';
+import { userLimit } from './limits.ts';
 import { evaluate, type Ind, type Val } from './dqa.ts';
 
 const READ = ['admin', 'me_manager', 'data_entry', 'reviewer', 'viewer'];
@@ -54,7 +55,7 @@ export function registerDqa(app: FastifyInstance, pool: pg.Pool) {
   });
 
   // Exécution : persiste les anomalies (idempotent), rouvre celles qui réapparaissent, clôt automatiquement celles qui ont disparu.
-  app.post('/dqa/run', { preHandler: guard(RUN) }, async (req) => {
+  app.post('/dqa/run', { preHandler: [userLimit('dqa_run', 10), guard(RUN)] }, async (req) => {
     const f = z.object({ project_id: Uuid.optional(), as_of: AsOf }).parse(req.body ?? {});
     return withTenant(pool, (req as any).principal, async (c) => {
       const results = await assess(c, f.project_id, f.as_of ?? today());

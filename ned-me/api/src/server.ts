@@ -13,6 +13,6 @@ const s3 = process.env.S3_ENDPOINT;
 if (!s3 && !secret) throw new Error('S3_ENDPOINT requis en production (le stockage mémoire est réservé au développement)');
 if (s3 && (!process.env.S3_ACCESS_KEY || !process.env.S3_SECRET_KEY)) throw new Error('S3_ACCESS_KEY et S3_SECRET_KEY requis');
 const storage = s3
-  ? s3Storage({ endpoint: s3, bucket: process.env.S3_BUCKET ?? 'ned-evidence', accessKeyId: process.env.S3_ACCESS_KEY!, secretAccessKey: process.env.S3_SECRET_KEY! })
+  ? s3Storage({ endpoint: s3, publicEndpoint: process.env.S3_PUBLIC_ENDPOINT || undefined, bucket: process.env.S3_BUCKET ?? 'ned-evidence', accessKeyId: process.env.S3_ACCESS_KEY!, secretAccessKey: process.env.S3_SECRET_KEY! })
   : memoryStorage();
-await buildApp(makePool(url), verify, storage).listen({ port: Number(process.env.PORT ?? 3000), host: '0.0.0.0' });
+await buildApp(makePool(url), verify, storage, { logger: true, trustProxy: process.env.TRUST_PROXY === '1', rateLimitMax: process.env.RATE_LIMIT_MAX ? Number(process.env.RATE_LIMIT_MAX) : undefined }).listen({ port: Number(process.env.PORT ?? 3000), host: '0.0.0.0' });

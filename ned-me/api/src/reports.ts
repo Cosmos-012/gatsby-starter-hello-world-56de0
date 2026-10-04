@@ -8,6 +8,7 @@ import { followUp } from './evaluations.ts';
 import { buildContent, hashContent, REPORT_TYPES, type Content } from './report-content.ts';
 import { renderHtml, renderXlsx } from './report-render.ts';
 import { parseLangs } from './i18n.ts';
+import { userLimit } from './limits.ts';
 import { canTransition, transitionExists, type State } from './workflow.ts';
 
 const MANAGE = ['admin', 'me_manager'];
@@ -25,7 +26,7 @@ export function registerReports(app: FastifyInstance, pool: pg.Pool) {
   const canSeeDrafts = (req: any) => req.principal.roles.some((r: string) => GENERATE.includes(r));
   const visible = (req: any, status: string) => canSeeDrafts(req) || status === 'published' || status === 'archived';
 
-  app.post('/reports', { preHandler: guard(GENERATE) }, async (req, reply) => {
+  app.post('/reports', { preHandler: [userLimit('reports', 20), guard(GENERATE)] }, async (req, reply) => {
     const b = z.object({ project_id: Uuid.optional(), type: z.enum(REPORT_TYPES as [string, ...string[]]), title: z.string().trim().min(3).max(300).optional(),
       period_start: z.string().date(), period_end: z.string().date(), as_of: z.string().date().optional() }).parse(req.body);
     if (b.period_end < b.period_start) return reply.code(400).send({ error: 'period_end before period_start' });
