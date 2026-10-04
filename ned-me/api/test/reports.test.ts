@@ -29,7 +29,7 @@ before(async () => {
   const admin = new pg.Client({ connectionString: ADMIN }); await admin.connect();
   await admin.query(`DROP DATABASE IF EXISTS ${DB}`); await admin.query(`CREATE DATABASE ${DB}`); await admin.end();
   owner = new pg.Client({ connectionString: ADMIN.replace(/\/[^/]*$/, `/${DB}`) }); await owner.connect();
-  for (const f of ['001_foundation', '002_results_indicators', '004_arabic_search', '005_workflow', '006_dqa', '007_evidence', '008_evaluations', '009_meal', '010_reports']) await owner.query(readFileSync(new URL(`${f}.sql`, dir), 'utf8'));
+  for (const f of ['001_foundation', '002_results_indicators', '004_arabic_search', '005_workflow', '006_dqa', '007_evidence', '008_evaluations', '009_meal', '010_reports', '011_risks']) await owner.query(readFileSync(new URL(`${f}.sql`, dir), 'utf8'));
   await owner.query(`DROP ROLE IF EXISTS ned_rpt_login; CREATE ROLE ned_rpt_login LOGIN PASSWORD 'x' IN ROLE ned_app`);
   await owner.query(`INSERT INTO tenant (id,name) VALUES ('${T1}','A'),('${T2}','B')`);
   pool = makePool(ADMIN.replace(/\/\/[^@]*@/, '//ned_rpt_login:x@').replace(/\/[^/]*$/, `/${DB}`));
@@ -84,11 +84,12 @@ test('génération : types, versions, chiffres traçables, période respectée',
   const r = await call('POST', '/reports', mgr, { project_id: projectId, type: 'me', title: 'Rapport S&E T1 2026', period_start: '2026-01-01', period_end: '2026-03-31' });
   assert.equal(r.status, 201); assert.equal(r.body.version, 1); assert.equal(r.body.status, 'draft'); rptId = r.body.id;
   const v = (await call('GET', `/reports/${rptId}`, mgr)).body, c: Content = v.content;
-  assert.deepEqual(c.tables.map((t) => t.key), ['indicators', 'dq_issues']);
+  assert.deepEqual(c.tables.map((t) => t.key), ['indicators', 'dq_issues', 'risks']);
   assert.ok(c.figures.every((f) => f.source.startsWith('/') && f.as_of === '2026-03-31'));          // chaque chiffre cite sa source
   const A = c.tables[0].rows.find((x: any) => x.code === 'A') as any;
   assert.equal(A.actual, 80); assert.equal(A.target, 100);                                            // Q2 (190) exclu : après la fin de période
   assert.equal(c.figures.find((f) => f.key === 'performance.indicators_total')!.value, 2);
+  assert.ok(c.figures.some((f) => f.key === 'risks.open_total' && f.value === 0));                       // module présent : zéro réel
   assert.ok(!c.figures.some((f) => f.key.startsWith('accountability')));                                // composition du type « me »
   assert.equal((await call('GET', `/reports/${rptId}/verify`, mgr)).body.valid, true);
   const v2 = await call('POST', '/reports', mgr, { project_id: projectId, type: 'me', period_start: '2026-01-01', period_end: '2026-03-31' });
@@ -186,4 +187,23 @@ test('isolation tenant', async () => {
   assert.equal((await call('GET', `/reports/${rptId}`, other)).status, 404);
   assert.equal((await call('GET', `/reports/${rptId}/export?format=html`, other)).status, 404);
   assert.equal((await call('POST', '/reports', other, { project_id: projectId, type: 'me', period_start: '2026-01-01', period_end: '2026-03-31' })).status, 422);
+});
+
+test('le registre des risques actifs figure dans les rapports, localisé (arabe) et avec ses chiffres sources', async () => {
+  const mgr = await tok('mgr', T1, ['me_manager']);
+  const risk = await call('POST', '/risks', mgr, { project_id: projectId, code: 'R-CYB', title: 'هجوم سيبراني على المنصة', probability: 4, impact: 5, owner_name: 'مدير الأمن', category: 'technical' });
+  assert.equal(risk.status, 201);
+  const rep = await call('POST', '/reports', mgr, { project_id: projectId, type: 'executive', period_start: '2026-01-01', period_end: '2026-06-30', title: 'Rapport exécutif S1 2026' });
+  const content: Content = (await call('GET', `/reports/${rep.body.id}`, mgr)).body.content;
+  assert.ok(content.tables.some((t) => t.key === 'risks'));
+  assert.equal(content.figures.find((f) => f.key === 'risks.critical')!.value, 1);
+  assert.equal(content.figures.find((f) => f.key === 'risks.critical_unescalated')!.value, 1);
+  const html = (await call('GET', `/reports/${rep.body.id}/export?format=html&lang=ar`, mgr)).body as string;
+  assert.ok(html.includes('سجل المخاطر النشطة') && html.includes('R-CYB') && html.includes('حرج'));        // titre de table et niveau en arabe
+  assert.ok(html.includes('المخاطر الحرجة'));
+  const x = await call('GET', `/reports/${rep.body.id}/export?format=xlsx&lang=ar,fr`, mgr);
+  const wb = new ExcelJS.Workbook(); await wb.xlsx.load(Buffer.from(x.raw) as any);
+  const sheet = wb.worksheets.find((w) => w.name.includes('سجل المخاطر'))!;
+  assert.ok(sheet, 'feuille du registre'); assert.equal(sheet.views[0].rightToLeft, true);
+  const row = sheet.getRow(2); assert.equal(row.getCell(1).value, 'R-CYB'); assert.equal(row.getCell(3).value, 'حرج / Critique'); assert.equal(row.getCell(4).value, 20);
 });

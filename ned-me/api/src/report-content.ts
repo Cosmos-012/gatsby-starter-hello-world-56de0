@@ -8,13 +8,13 @@ export interface Table { key: string; source: string; columns: string[]; rows: R
 export interface Meta { type: ReportType; title: string; project_id: string | null; period_start: string; period_end: string; as_of: string; generated_at: string }
 export interface Content { meta: Meta; figures: Figure[]; tables: Table[] }
 
-const PERIODIC = { figures: ['performance', 'data_quality', 'accountability'], tables: ['indicators', 'alerts'] };
-const FULL = { figures: ['performance', 'data_quality', 'evaluations', 'accountability', 'learning'], tables: ['indicators', 'alerts'] };
+const PERIODIC = { figures: ['performance', 'data_quality', 'accountability', 'risks'], tables: ['indicators', 'alerts'] };
+const FULL = { figures: ['performance', 'data_quality', 'evaluations', 'accountability', 'risks', 'learning'], tables: ['indicators', 'risks', 'alerts'] };
 /** Contenu de chaque type de rapport : groupes de chiffres et tables. */
 export const COMPOSITION: Record<ReportType, { figures: string[]; tables: string[] }> = {
   monthly: PERIODIC, quarterly: PERIODIC, semiannual: PERIODIC, annual: FULL,
   donor: FULL, government: FULL, executive: FULL,
-  me: { figures: ['performance', 'data_quality'], tables: ['indicators', 'dq_issues'] },
+  me: { figures: ['performance', 'data_quality', 'risks'], tables: ['indicators', 'dq_issues', 'risks'] },
   indicator: { figures: ['performance'], tables: ['indicators'] },
   dqa: { figures: ['data_quality'], tables: ['dq_issues'] },
   evaluation: { figures: ['evaluations'], tables: ['overdue_actions'] },
@@ -36,11 +36,14 @@ export function figuresOf(o: any): Figure[] {
     f('evaluations.unanswered', ev.recommendations.unanswered, ev.source), f('evaluations.overdue_actions', ev.recommendations.overdue_actions, ev.source),
     f('accountability.open_feedback', ac.open_feedback, ac.source), f('accountability.overdue_resolution', ac.overdue_resolution, ac.source),
     f('accountability.overdue_acknowledgement', ac.overdue_acknowledgement, ac.source), f('accountability.satisfaction_avg', ac.satisfaction_avg, ac.source),
+    f('risks.open_total', o.risks.open_total, o.risks.source), f('risks.critical', o.risks.open_by_level.critical, o.risks.source), f('risks.high', o.risks.open_by_level.high, o.risks.source),
+    f('risks.critical_unescalated', o.risks.critical_unescalated, o.risks.source), f('risks.review_overdue', o.risks.review_overdue, o.risks.source),
+    f('risks.overdue_mitigations', o.risks.overdue_mitigations, o.risks.source), f('risks.open_issues', o.risks.open_issues_total, o.risks.source), f('risks.overdue_issues', o.risks.overdue_issues, o.risks.source),
     f('learning.total', o.learning.total, o.learning.source),
   ];
 }
 
-export interface Sources { overview: any; indicators: any[]; dqIssues: any[]; overdueActions: any[]; indicatorsSource: string; dqSource: string; actionsSource: string }
+export interface Sources { overview: any; indicators: any[]; dqIssues: any[]; overdueActions: any[]; risks: any[]; risksSource: string; indicatorsSource: string; dqSource: string; actionsSource: string }
 
 export function buildContent(meta: Meta, s: Sources): Content {
   const comp = COMPOSITION[meta.type];
@@ -52,6 +55,8 @@ export function buildContent(meta: Meta, s: Sources): Content {
       rows: s.overview.alerts.map((a: any) => ({ severity: a.severity, type: a.type, details: a.params })) },
     dq_issues: { key: 'dq_issues', source: s.dqSource, columns: ['code', 'period', 'dimension', 'severity', 'message'],
       rows: s.dqIssues.map((r) => ({ code: r.indicator_code, period: r.period, dimension: r.dimension, severity: r.severity, message: r.message, indicator_id: r.indicator_id })) },
+    risks: { key: 'risks', source: s.risksSource, columns: ['code', 'title', 'level', 'score', 'status', 'owner', 'escalation'],
+      rows: s.risks.map((r) => ({ code: r.code, title: r.title, level: r.level, score: r.score, status: r.status, owner: r.owner_name, escalation: r.escalation_level, risk_id: r.id })) },
     overdue_actions: { key: 'overdue_actions', source: s.actionsSource, columns: ['description', 'responsible_name', 'due_date', 'days_late'],
       rows: s.overdueActions.map((a) => ({ description: a.description, responsible_name: a.responsible_name, due_date: a.due_date, days_late: a.days_late, action_id: a.id })) },
   };

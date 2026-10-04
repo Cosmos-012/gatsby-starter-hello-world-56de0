@@ -6,23 +6,30 @@ import { trackingRows } from './tracking.ts';
 import { assess } from './dqa-routes.ts';
 import { followUp } from './evaluations.ts';
 import { mealSummary } from './meal.ts';
+import { riskSummary } from './risks.ts';
 
 const READ = ['admin', 'me_manager', 'data_entry', 'reviewer', 'viewer'];
 const round = (n: number, d = 4) => Math.round(n * 10 ** d) / 10 ** d;
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
 // Modules du premier écran pas encore construits : déclarés, jamais remplacés par des zéros inventés.
-export const NOT_AVAILABLE = ['activities', 'risks', 'finance', 'procurement'] as const;
+export const NOT_AVAILABLE = ['activities', 'finance', 'procurement'] as const;
 
 export interface Alert { severity: 'critical' | 'warning'; type: string; params: Record<string, unknown> }
 
 /** Alertes par règles déterministes ; `type` = clé i18n côté interface, aucun texte codé en dur. */
-export function buildAlerts(i: { red: any[]; atRisk: any[]; dqErrors: number; overdueActions: any[]; overdueComplaints: number; unackComplaints: number; unansweredHigh: any[] }): Alert[] {
+export function buildAlerts(i: { red: any[]; atRisk: any[]; dqErrors: number; overdueActions: any[]; overdueComplaints: number; unackComplaints: number; unansweredHigh: any[]; risks?: { critical_unescalated: number; review_overdue: number; overdue_mitigations: number; open_critical_issues: number; overdue_issues: number } }): Alert[] {
   const out: Alert[] = [];
   if (i.dqErrors > 0) out.push({ severity: 'critical', type: 'dq_errors', params: { count: i.dqErrors } });
   for (const a of i.overdueActions.slice(0, 5)) out.push({ severity: a.days_late > 30 ? 'critical' : 'warning', type: 'overdue_action', params: { action_id: a.id, recommendation_id: a.recommendation_id, days_late: a.days_late } });
   if (i.overdueComplaints > 0) out.push({ severity: 'critical', type: 'overdue_complaints', params: { count: i.overdueComplaints } });
   if (i.unackComplaints > 0) out.push({ severity: 'warning', type: 'complaints_unacknowledged', params: { count: i.unackComplaints } });
+  const k = i.risks;
+  if (k?.critical_unescalated) out.push({ severity: 'critical', type: 'critical_risk_unescalated', params: { count: k.critical_unescalated } });
+  if (k?.open_critical_issues) out.push({ severity: 'critical', type: 'open_critical_issues', params: { count: k.open_critical_issues } });
+  if (k?.overdue_issues) out.push({ severity: 'warning', type: 'overdue_issues', params: { count: k.overdue_issues } });
+  if (k?.overdue_mitigations) out.push({ severity: 'warning', type: 'overdue_mitigations', params: { count: k.overdue_mitigations } });
+  if (k?.review_overdue) out.push({ severity: 'warning', type: 'risk_review_overdue', params: { count: k.review_overdue } });
   for (const r of [...i.red].sort((a, b) => (a.achievement ?? 0) - (b.achievement ?? 0)).slice(0, 5)) out.push({ severity: 'warning', type: 'red_indicator', params: { indicator_id: r.indicator_id, code: r.code, achievement: r.achievement } });
   for (const r of i.atRisk.slice(0, 5)) out.push({ severity: 'warning', type: 'forecast_at_risk', params: { indicator_id: r.indicator_id, code: r.code, forecast: r.forecast, target: r.forecast_final_target } });
   for (const r of i.unansweredHigh.slice(0, 5)) out.push({ severity: 'warning', type: 'unanswered_recommendation', params: { recommendation_id: r.id } });
@@ -68,6 +75,7 @@ export async function buildOverview(c: pg.PoolClient, f: OverviewFilter) {
     `SELECT status, count(*)::int AS n FROM evaluation WHERE ($1::uuid IS NULL OR project_id = $1) GROUP BY status`, [f.project_id ?? null])).rows.map((r) => [r.status, r.n]));
   const fu = await followUp(c, f.project_id, asOf);
   const meal = await mealSummary(c, f.project_id, asOf);
+  const risk = await riskSummary(c, f.project_id, asOf);
   const fb = meal.feedback_by_kind_status as { kind: string; status: string; n: number }[];
   const lessonByStatus: Record<string, number> = {};
   for (const l of meal.lessons as { status: string; n: number }[]) lessonByStatus[l.status] = (lessonByStatus[l.status] ?? 0) + l.n;
@@ -76,6 +84,7 @@ export async function buildOverview(c: pg.PoolClient, f: OverviewFilter) {
     red: tracking.filter((r) => r.status === 'RED'), atRisk: tracking.filter((r) => r.at_risk && r.status !== 'RED'),
     dqErrors: dqOpen.error ?? 0, overdueActions: fu.overdue_actions, overdueComplaints: meal.overdue_resolution,
     unackComplaints: meal.overdue_acknowledgement, unansweredHigh: fu.unanswered.filter((r: any) => r.priority === 'high'),
+    risks: { critical_unescalated: risk.critical_unescalated, review_overdue: risk.review_overdue, overdue_mitigations: risk.overdue_mitigations, open_critical_issues: risk.open_issues_by_severity.critical, overdue_issues: risk.overdue_issues },
   });
   alerts.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'critical' ? -1 : 1));
 
@@ -92,6 +101,7 @@ export async function buildOverview(c: pg.PoolClient, f: OverviewFilter) {
       open_feedback: fb.filter((x) => x.kind !== 'satisfaction' && !['resolved', 'closed'].includes(x.status)).reduce((s, x) => s + x.n, 0),
       overdue_resolution: meal.overdue_resolution, overdue_acknowledgement: meal.overdue_acknowledgement,
       satisfaction_avg: meal.satisfaction.avg, source: `/meal/summary?${qs({ as_of: asOf })}` },
+    risks: { ...risk, source: `/risks?${qs({ as_of: asOf })}` },
     learning: { total: Object.values(lessonByStatus).reduce((a, b) => a + b, 0), by_status: lessonByStatus, source: `/lessons?${qs()}` },
     alerts, not_available: NOT_AVAILABLE,
   };

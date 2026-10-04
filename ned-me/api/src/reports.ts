@@ -38,10 +38,13 @@ export function registerReports(app: FastifyInstance, pool: pg.Pool) {
         `SELECT i.code AS indicator_code, d.indicator_id, d.period, d.dimension, d.severity, d.message
          FROM dq_issue d JOIN indicator i ON i.tenant_id = d.tenant_id AND i.id = d.indicator_id
          WHERE d.status = 'open' AND ($1::uuid IS NULL OR i.project_id = $1) ORDER BY (d.severity = 'error') DESC, i.code, d.period`, [b.project_id ?? null])).rows;
+      const risks = (await c.query(
+        `SELECT id, code, title, level, score, status, owner_name, escalation_level FROM risk
+         WHERE status IN ('open','mitigating','accepted') AND ($1::uuid IS NULL OR project_id = $1) ORDER BY score DESC, code`, [b.project_id ?? null])).rows;
       const fu = await followUp(c, b.project_id, asOf);
       const q = (extra: Record<string, string>) => new URLSearchParams({ ...(b.project_id ? { project_id: b.project_id } : {}), ...extra }).toString();
       const meta = { type: b.type as any, title: b.title ?? `${b.type} ${b.period_end}`, project_id: b.project_id ?? null, period_start: b.period_start, period_end: b.period_end, as_of: asOf, generated_at: new Date().toISOString() };
-      const content = buildContent(meta, { overview, indicators, dqIssues, overdueActions: fu.overdue_actions,
+      const content = buildContent(meta, { overview, indicators, dqIssues, overdueActions: fu.overdue_actions, risks, risksSource: `/risks?${q({ as_of: asOf })}`,
         indicatorsSource: `/indicators/tracking?${q({ period_end: b.period_end })}`, dqSource: `/dqa/issues?${q({ status: 'open' })}`, actionsSource: `/recommendations/follow-up?${q({ as_of: asOf })}` });
       const hash = hashContent(content);
       const version = (await c.query(

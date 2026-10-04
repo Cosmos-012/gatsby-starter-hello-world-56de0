@@ -26,7 +26,7 @@ before(async () => {
   const admin = new pg.Client({ connectionString: ADMIN }); await admin.connect();
   await admin.query(`DROP DATABASE IF EXISTS ${DB}`); await admin.query(`CREATE DATABASE ${DB}`); await admin.end();
   const owner = new pg.Client({ connectionString: ADMIN.replace(/\/[^/]*$/, `/${DB}`) }); await owner.connect();
-  for (const f of ['001_foundation', '002_results_indicators', '004_arabic_search', '005_workflow', '006_dqa', '007_evidence', '008_evaluations', '009_meal', '010_reports']) await owner.query(readFileSync(new URL(`${f}.sql`, dir), 'utf8'));
+  for (const f of ['001_foundation', '002_results_indicators', '004_arabic_search', '005_workflow', '006_dqa', '007_evidence', '008_evaluations', '009_meal', '010_reports', '011_risks']) await owner.query(readFileSync(new URL(`${f}.sql`, dir), 'utf8'));
   await owner.query(`DROP ROLE IF EXISTS ned_dsh_login; CREATE ROLE ned_dsh_login LOGIN PASSWORD 'x' IN ROLE ned_app`);
   await owner.query(`INSERT INTO tenant (id,name) VALUES ('${T1}','A'),('${T2}','B')`);
   await owner.end();
@@ -73,7 +73,8 @@ test('vue projet : performance, statuts, niveaux ; l\'autre projet est exclu ; m
     { level: 'impact', indicators: 1, with_data: 0, avg_achievement: null },    // pas de zéro inventé
     { level: 'outcome', indicators: 1, with_data: 1, avg_achievement: 0.7 },
     { level: 'output', indicators: 2, with_data: 2, avg_achievement: 0.725 }]);
-  assert.deepEqual(r.body.not_available, ['activities', 'risks', 'finance', 'procurement']);
+  assert.deepEqual(r.body.not_available, ['activities', 'finance', 'procurement']);
+  assert.equal(r.body.risks.open_total, 0); assert.equal(r.body.risks.open_issues_total, 0);   // module présent : zéros réels, plus « non disponible »
   assert.ok(p.source.startsWith('/indicators/tracking?project_id=' + projectId));
   const global = (await call('GET', `/dashboard/overview?as_of=${ASOF}`, viewer)).body;
   assert.equal(global.performance.indicators_total, 5);               // sans filtre : les deux projets
@@ -96,6 +97,10 @@ test('agrégats cohérents avec les endpoints sources (DQA, évaluations, MEAL, 
   await call('POST', '/feedback', entry, { ...base, kind: 'satisfaction', satisfaction_score: 4, subject: 'Atelier' });
   for (const t of ['Leçon une', 'Leçon deux']) await call('POST', '/lessons', entry, { project_id: projectId, category: 'lesson', title: t, description: 'Description suffisamment longue' });
 
+  // Risques : un risque critique non escaladé, revue échue le 01/10, action d'atténuation échue ; un problème critique ouvert et échu
+  const risk = (await call('POST', '/risks', entry, { project_id: projectId, code: 'R1', title: 'Cyberattaque', probability: 4, impact: 5, owner_name: 'DSI', review_due: '2026-10-01' })).body.id;
+  await call('POST', `/risks/${risk}/mitigations`, mgr, { description: 'Audit de sécurité', responsible_name: 'RSSI', due_date: '2026-11-01' });
+  await call('POST', '/issues', entry, { project_id: projectId, title: 'Plateforme indisponible', severity: 'critical', owner_name: 'DSI', due_date: '2026-11-01' });
   const d = (await call('GET', `/dashboard/overview?project_id=${projectId}&as_of=${ASOF}`, rev)).body;
   const scores = (await call('GET', `/dqa/scores?project_id=${projectId}&as_of=${ASOF}`, rev)).body;
   assert.equal(d.data_quality.indicators_assessed, 4);
@@ -106,8 +111,12 @@ test('agrégats cohérents avec les endpoints sources (DQA, évaluations, MEAL, 
   assert.deepEqual(d.accountability, { open_feedback: 1, overdue_resolution: 1, overdue_acknowledgement: 1, satisfaction_avg: 4, source: d.accountability.source });
   assert.deepEqual(d.learning, { total: 2, by_status: { draft: 2 }, source: d.learning.source });
 
+  const { source: _s, ...rk } = d.risks;
+  assert.deepEqual(rk, { open_by_level: { critical: 1, high: 0, medium: 0, low: 0 }, open_total: 1, critical_unescalated: 1, review_overdue: 1, overdue_mitigations: 1,
+    open_issues_by_severity: { critical: 1, high: 0, medium: 0, low: 0 }, open_issues_total: 1, overdue_issues: 1 });
   const types = d.alerts.map((a: any) => `${a.severity}:${a.type}`);
-  assert.deepEqual(types, ['critical:dq_errors', 'critical:overdue_action', 'critical:overdue_complaints', 'warning:complaints_unacknowledged', 'warning:red_indicator', 'warning:unanswered_recommendation']);
+  assert.deepEqual(types, ['critical:dq_errors', 'critical:overdue_action', 'critical:overdue_complaints', 'critical:critical_risk_unescalated', 'critical:open_critical_issues',
+    'warning:complaints_unacknowledged', 'warning:overdue_issues', 'warning:overdue_mitigations', 'warning:risk_review_overdue', 'warning:red_indicator', 'warning:unanswered_recommendation']);
   assert.equal(d.alerts.find((a: any) => a.type === 'overdue_action').params.days_late, 61);
   assert.equal(d.alerts.find((a: any) => a.type === 'red_indicator').params.code, 'B');
   assert.equal(d.alerts.find((a: any) => a.type === 'dq_errors').params.count, 6);

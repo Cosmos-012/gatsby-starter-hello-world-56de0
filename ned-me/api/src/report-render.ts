@@ -18,7 +18,8 @@ function figureText(f: Figure, langs: Lang[]): string {
 export function cell(table: string, col: string, row: Record<string, any>, langs: Lang[]): string | number | null {
   const v = row[col];
   if (col === 'name') return pick(v, langs);
-  if (col === 'status') return label(`status.${v}`, langs);
+  if (col === 'status') return label(table === 'risks' ? `risk_status.${v}` : `status.${v}`, langs);
+  if (col === 'level') return label(`level.${v}`, langs);
   if (col === 'trend') return label(`trend.${v}`, langs);
   if (col === 'severity') return label(`severity.${v}`, langs);
   if (col === 'type' && table === 'alerts') return label(`alert.${v}`, langs);

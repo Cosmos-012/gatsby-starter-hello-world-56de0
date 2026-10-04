@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type pg from 'pg';
 import type { Principal } from './auth.ts';
 import { withTenant } from './db.ts';
+import { registerRisks } from './risks.ts';
 import { registerReports } from './reports.ts';
 import { registerDashboard } from './dashboard.ts';
 import { registerMeal } from './meal.ts';
@@ -111,6 +112,7 @@ export function buildApp(pool: pg.Pool, verify: Verify, storage?: Storage) {
   registerMeal(app, pool);
   registerDashboard(app, pool);
   registerReports(app, pool);
+  registerRisks(app, pool);
   if (storage) registerEvidence(app, pool, storage);
   registerFramework(app, pool);
   return app;
