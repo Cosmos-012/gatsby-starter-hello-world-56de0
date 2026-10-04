@@ -94,7 +94,7 @@ test('workflow de bout en bout + séparation des tâches + statut calculé', asy
   assert.equal((await tr(actual, 'validated', entry)).status, 409);          // saut interdit
   assert.equal((await tr(actual, 'submitted', entry)).status, 200);
   assert.equal((await tr(actual, 'review', entry)).status, 403);             // data_entry ne relit pas
-  assert.equal((await tr(actual, 'review', rev)).status, 200);
+  assert.equal((await call('POST', `/indicator-values/${actual}/transition`, rev, { to: 'review', comment: 'Pièces jointes vérifiées' })).status, 200);   // commentaire journalisé (régression : UPDATE interdit sur le journal)
   assert.equal((await tr(actual, 'validated', rev)).status, 200);
   // cible : même chaîne par le manager, puis auto-validation interdite
   await tr(target, 'submitted', entry); await tr(target, 'review', rev); await tr(target, 'validated', rev);
@@ -112,9 +112,10 @@ test('workflow de bout en bout + séparation des tâches + statut calculé', asy
 
   const c2 = await pool.connect();
   await c2.query('BEGIN'); await c2.query("SELECT set_config('app.tenant_id',$1,true)", [T1]);
-  const ev = (await c2.query('SELECT to_state, actor FROM workflow_event WHERE value_id = $1 ORDER BY id', [actual])).rows;
+  const ev = (await c2.query('SELECT to_state, actor, comment FROM workflow_event WHERE value_id = $1 ORDER BY id', [actual])).rows;
   await c2.query('COMMIT'); c2.release();
   assert.deepEqual(ev.map((e) => e.to_state), ['submitted', 'review', 'validated', 'approved']);
+  assert.equal(ev[1].comment, 'Pièces jointes vérifiées'); assert.equal(ev[0].comment, null);
   assert.deepEqual(ev.map((e) => e.actor), ['dana', 'rick', 'rick', 'mgr']);
 });
 

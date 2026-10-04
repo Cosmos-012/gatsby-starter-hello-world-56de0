@@ -32,8 +32,8 @@ BEGIN
   IF NEW.workflow_state IN ('validated','approved') AND OLD.submitted_by IS NOT DISTINCT FROM app.current_user_id() THEN
     RAISE EXCEPTION 'segregation of duties: submitter cannot validate/approve' USING ERRCODE = '42501';
   END IF;
-  INSERT INTO workflow_event (tenant_id, value_id, from_state, to_state, actor)
-  VALUES (NEW.tenant_id, NEW.id, OLD.workflow_state, NEW.workflow_state, COALESCE(app.current_user_id(),'unknown'));
+  INSERT INTO workflow_event (tenant_id, value_id, from_state, to_state, actor, comment)
+  VALUES (NEW.tenant_id, NEW.id, OLD.workflow_state, NEW.workflow_state, COALESCE(app.current_user_id(),'unknown'), NULLIF(current_setting('app.comment', true), ''));
   RETURN NEW;
 END $$;
 CREATE TRIGGER value_workflow BEFORE UPDATE OF workflow_state ON indicator_value

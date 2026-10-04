@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type pg from 'pg';
 import type { Principal } from './auth.ts';
 import { withTenant } from './db.ts';
+import { registerReports } from './reports.ts';
 import { registerDashboard } from './dashboard.ts';
 import { registerMeal } from './meal.ts';
 import { registerEvaluations } from './evaluations.ts';
@@ -98,8 +99,8 @@ export function buildApp(pool: pg.Pool, verify: Verify, storage?: Storage) {
       const from = cur.workflow_state as State;
       if (!transitionExists(from, b.to)) return reply.code(409).send({ error: `invalid transition ${from} -> ${b.to}` });
       if (!canTransition(from, b.to, req.principal!.roles)) return reply.code(403).send({ error: 'forbidden' });
+      await c.query("SELECT set_config('app.comment', $1, true)", [b.comment ?? '']);   // lu par le déclencheur : le journal reste en ajout seul
       await c.query('UPDATE indicator_value SET workflow_state = $2 WHERE id = $1', [id, b.to]);
-      if (b.comment) await c.query('UPDATE workflow_event SET comment = $2 WHERE id = (SELECT max(id) FROM workflow_event WHERE value_id = $1)', [id, b.comment]);
       return { id, from, to: b.to };
     });
   });
@@ -109,6 +110,7 @@ export function buildApp(pool: pg.Pool, verify: Verify, storage?: Storage) {
   registerEvaluations(app, pool);
   registerMeal(app, pool);
   registerDashboard(app, pool);
+  registerReports(app, pool);
   if (storage) registerEvidence(app, pool, storage);
   registerFramework(app, pool);
   return app;

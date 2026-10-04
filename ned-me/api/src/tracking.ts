@@ -27,7 +27,7 @@ export function registerTracking(app: FastifyInstance, pool: pg.Pool) {
   });
 }
 
-export interface TrackingFilter { project_id?: string; result_id?: string; org_id?: string; period?: string; status?: string; dimensions: Record<string, string> }
+export interface TrackingFilter { project_id?: string; result_id?: string; org_id?: string; period?: string; periodEnd?: string; status?: string; dimensions: Record<string, string> }
 export async function trackingRows(c: pg.PoolClient, f: TrackingFilter) {
   const th = (await c.query('SELECT green_min::float8 g, amber_min::float8 a FROM status_config')).rows[0];
   const thresholds = th ? { green: th.g, amber: th.a } : undefined;
@@ -43,7 +43,7 @@ export async function trackingRows(c: pg.PoolClient, f: TrackingFilter) {
 
   const rows = inds.map((i) => {
     const mine = vals.filter((v) => v.indicator_id === i.id);
-    const actuals = mine.filter((v) => v.kind === 'actual' && ['validated', 'approved', 'published'].includes(v.workflow_state) && (!f.period || v.period <= f.period));
+    const actuals = mine.filter((v) => v.kind === 'actual' && ['validated', 'approved', 'published'].includes(v.workflow_state) && (!f.period || v.period <= f.period) && (!f.periodEnd || v.period_end <= f.periodEnd));
     const targets = mine.filter((v) => v.kind === 'target' && ['approved', 'published'].includes(v.workflow_state));
     const last = actuals[actuals.length - 1];
     const target = last ? targets.find((t) => t.period === last.period) : undefined;
