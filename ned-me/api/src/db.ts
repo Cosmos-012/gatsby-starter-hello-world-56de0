@@ -12,7 +12,7 @@ export async function withTenant<T>(pool: pg.Pool, p: Principal, fn: (c: pg.Pool
   const c = await pool.connect();
   try {
     await c.query('BEGIN');
-    await c.query("SELECT set_config('app.tenant_id', $1, true), set_config('app.user_id', $2, true)", [p.tenantId, p.sub]);
+    await c.query("SELECT set_config('app.tenant_id', $1, true), set_config('app.user_id', $2, true), set_config('app.roles', $3, true)", [p.tenantId, p.sub, p.roles.join(',')]);
     const r = await fn(c);
     await c.query('COMMIT');
     return r;
