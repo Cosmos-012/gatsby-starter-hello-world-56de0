@@ -18,5 +18,8 @@
 Fastify + TypeScript. Auth : jeton OIDC (Keycloak via JWKS en prod ; `DEV_JWT_SECRET` HS256 réservé dev/test). Claims requis : `sub`, `tenant_id` (UUID), rôles (`roles` ou `realm_access.roles`). Chaque requête ouvre une transaction avec `set_config('app.tenant_id'/'app.user_id', …, true)`. `DATABASE_URL` doit désigner un rôle non superuser membre de `ned_app`.
 Workflow des valeurs : le graphe est appliqué **en base** (migration 005, avec historique et séparation des tâches : qui soumet ne peut ni valider ni approuver) et les rôles autorisés par transition côté API.
 
+## DQA (migration 006, `api/src/dqa.ts`)
+Moteur pur et déterministe (`asOf` fourni) : validité (bornes), exactitude (variation relative), complétude (trous), ponctualité (retards après délai de grâce), cohérence (cible manquante, somme des tranches = total pour les comptages), fiabilité (source, vérification, valeurs répétées). Score = 1 − contrôles échoués / contrôles effectués. `POST /dqa/run` est idempotent : une anomalie réapparue est rouverte, une anomalie disparue est clôturée par `system`, une dérogation humaine (`waived`) est conservée. Clore exige une action corrective (contrainte en base) ; la dérogation est réservée aux managers.
+
 ## Feuille de route
 Fait : Phase 0, Phase 1 (modèle, RLS, audit, compose, CI, API de base, workflow, recherche arabe). Suivant : Phase 2 (CRUD organisations/programmes/composantes, résultats, indicateurs), frontend Next.js + i18n FR/AR/EN, puis Phases 3–14.
