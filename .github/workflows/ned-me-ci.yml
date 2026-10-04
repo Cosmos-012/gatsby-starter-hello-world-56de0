@@ -1,0 +1,25 @@
+name: ned-me-ci
+on:
+  push: { paths: ['ned-me/**'] }
+  pull_request: { paths: ['ned-me/**'] }
+jobs:
+  db:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 10
+    env:
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: DB migrations + RLS tests (avec PostGIS)
+        run: WITH_POSTGIS=1 PSQL_ADMIN="psql -h localhost -U postgres" ned-me/db/tests/run.sh
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp ned-me/deploy/.env.example ned-me/deploy/.env && docker compose -f ned-me/deploy/docker-compose.yml --env-file ned-me/deploy/.env config -q

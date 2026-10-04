@@ -1,0 +1,5 @@
+{$NED_DOMAIN:localhost} {
+	encode gzip
+	handle_path /auth/* { reverse_proxy keycloak:8080 }
+	handle_path /files/* { reverse_proxy minio:9000 }
+}
