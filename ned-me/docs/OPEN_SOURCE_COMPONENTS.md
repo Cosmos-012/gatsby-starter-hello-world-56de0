@@ -17,6 +17,8 @@
 | Tailwind / shadcn/ui | — | MIT | UI | Dépendance / code copié (MIT) | Non | Notice MIT | Faible | Non |
 | Apache ECharts | apache/echarts | Apache-2.0 | Graphiques | Dépendance | Non | NOTICE | Faible | Non |
 | MapLibre GL JS | maplibre/maplibre-gl-js | BSD-3-Clause | Cartes | Dépendance | Non | Notice BSD | Faible | Non |
+| AWS SDK for JavaScript v3 (`@aws-sdk/client-s3`, presigner) | aws/aws-sdk-js-v3 | Apache-2.0 | Client S3 pour les preuves (MinIO, Garage, SeaweedFS…) | Dépendance (API S3 standard : le stockage reste interchangeable) | Non | NOTICE | Faible | Non |
+| Fastify / pg / jose / zod | fastify, node-postgres, panva/jose, colinhacks/zod | MIT | API, accès DB, JWT/OIDC, validation | Dépendances | Non | Notice MIT | Faible | Non (à confirmer au lockfile) |
 | Caddy | caddyserver/caddy | Apache-2.0 | Reverse proxy TLS | Service | Non | NOTICE | Faible | Non |
 
 Règle : Hikaya, Tangerine, Open Foris restent en « inspiration » jusqu'à vérification de licence documentée ici.

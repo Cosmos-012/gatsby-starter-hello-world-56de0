@@ -21,5 +21,8 @@ Workflow des valeurs : le graphe est appliqué **en base** (migration 005, avec 
 ## DQA (migration 006, `api/src/dqa.ts`)
 Moteur pur et déterministe (`asOf` fourni) : validité (bornes), exactitude (variation relative), complétude (trous), ponctualité (retards après délai de grâce), cohérence (cible manquante, somme des tranches = total pour les comptages), fiabilité (source, vérification, valeurs répétées). Score = 1 − contrôles échoués / contrôles effectués. `POST /dqa/run` est idempotent : une anomalie réapparue est rouverte, une anomalie disparue est clôturée par `system`, une dérogation humaine (`waived`) est conservée. Clore exige une action corrective (contrainte en base) ; la dérogation est réservée aux managers.
 
+## Preuves (migration 007, `api/src/evidence.ts`, `api/src/storage.ts`)
+Fichiers hors base, derrière l'interface `Storage` (API S3). Flux : `POST /evidence` crée la preuve `pending` et renvoie une URL de téléversement présignée ; le client téléverse ; `POST /evidence/:id/complete` vérifie que l'objet existe et que sa taille égale celle déclarée avant de passer à `available`. Clé = `<tenant>/<uuid>/<nom assaini>`, jamais fournie par le client ; types MIME en liste blanche ; 25 Mo max ; pas de suppression (DELETE révoqué). Chaîne : `GET /indicator-values/:id/chain` → preuves → donnée → indicateur → output → outcome → impact → projet. L'adaptateur S3 n'est pas testé contre un vrai serveur (pas de Docker ici).
+
 ## Feuille de route
 Fait : Phase 0, Phase 1 (modèle, RLS, audit, compose, CI, API de base, workflow, recherche arabe). Suivant : Phase 2 (CRUD organisations/programmes/composantes, résultats, indicateurs), frontend Next.js + i18n FR/AR/EN, puis Phases 3–14.

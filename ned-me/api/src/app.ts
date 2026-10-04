@@ -3,6 +3,8 @@ import { z } from 'zod';
 import type pg from 'pg';
 import type { Principal } from './auth.ts';
 import { withTenant } from './db.ts';
+import { registerEvidence } from './evidence.ts';
+import type { Storage } from './storage.ts';
 import { registerDqa } from './dqa-routes.ts';
 import { registerTracking } from './tracking.ts';
 import { registerFramework } from './framework.ts';
@@ -15,7 +17,7 @@ const Name = z.object({ fr: z.string().optional(), ar: z.string().optional(), en
   .refine((n) => n.fr || n.ar || n.en, 'at least one language required');
 const STATES = ['draft', 'submitted', 'review', 'validated', 'approved', 'published', 'archived'] as const;
 
-export function buildApp(pool: pg.Pool, verify: Verify) {
+export function buildApp(pool: pg.Pool, verify: Verify, storage?: Storage) {
   const app = Fastify({ logger: false });
 
   app.get('/health', async () => ({ ok: true }));
@@ -34,7 +36,7 @@ export function buildApp(pool: pg.Pool, verify: Verify) {
     const map: Record<string, number> = { '23514': 409, '42501': 403, '23503': 422, '23505': 409, '22P02': 400 };
     const code = map[err?.code];
     if (code) return reply.code(code).send({ error: err.message });
-    return reply.code(500).send({ error: 'internal' });
+    if (process.env.NED_DEBUG) console.error(err); return reply.code(500).send({ error: 'internal' });
   });
 
   const need = (req: any, reply: any, ...roles: string[]) => {
@@ -101,6 +103,7 @@ export function buildApp(pool: pg.Pool, verify: Verify) {
 
   registerTracking(app, pool);
   registerDqa(app, pool);
+  if (storage) registerEvidence(app, pool, storage);
   registerFramework(app, pool);
   return app;
 }
