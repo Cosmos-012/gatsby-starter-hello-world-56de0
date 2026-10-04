@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type pg from 'pg';
 import type { Principal } from './auth.ts';
 import { withTenant } from './db.ts';
+import { registerTracking } from './tracking.ts';
 import { registerFramework } from './framework.ts';
 import { canTransition, transitionExists, type State } from './workflow.ts';
 
@@ -97,6 +98,7 @@ export function buildApp(pool: pg.Pool, verify: Verify) {
     });
   });
 
+  registerTracking(app, pool);
   registerFramework(app, pool);
   return app;
 }
