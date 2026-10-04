@@ -91,3 +91,17 @@ DO $$ BEGIN
   IF (SELECT count(*) FROM indicator) <> 0 OR (SELECT count(*) FROM audit_log WHERE actor = 'alice' OR table_name IN ('indicator','indicator_value')) <> 0 THEN RAISE EXCEPTION 'FAIL: fuite vers B'; END IF;
 END $$;
 COMMIT;
+
+-- 7. Recherche arabe : tashkeel, alef et ta marbuta ne doivent pas gêner.
+BEGIN;
+SET LOCAL app.tenant_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+INSERT INTO indicator (tenant_id, project_id, code, name)
+ SELECT tenant_id, id, 'AR1', '{"ar":"عَدَدُ المُسْتَفِيدِينَ مِنَ الخِدْمَاتِ الرَّقْمِيَّة","fr":"Bénéficiaires"}' FROM project;
+DO $$ BEGIN
+  IF (SELECT count(*) FROM indicator WHERE app.search_text(name) LIKE '%' || app.norm_text('المستفيدين') || '%') <> 1
+  THEN RAISE EXCEPTION 'FAIL: recherche arabe sans tashkeel'; END IF;
+  IF (SELECT count(*) FROM indicator WHERE app.search_text(name) LIKE '%' || app.norm_text('الرقمية') || '%') <> 1
+  THEN RAISE EXCEPTION 'FAIL: ta marbuta/ha'; END IF;
+  IF app.norm_text('أحمد') <> app.norm_text('احمد') THEN RAISE EXCEPTION 'FAIL: alef'; END IF;
+END $$;
+COMMIT;
