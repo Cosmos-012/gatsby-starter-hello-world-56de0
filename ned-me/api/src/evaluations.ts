@@ -140,21 +140,23 @@ export function registerEvaluations(app: FastifyInstance, pool: pg.Pool) {
   app.get('/recommendations/follow-up', { preHandler: guard(READ) }, async (req) => {
     const f = z.object({ project_id: Uuid.optional(), as_of: z.string().date().optional() }).parse(req.query);
     const asOf = f.as_of ?? new Date().toISOString().slice(0, 10);
-    return run(req, async (c) => {
-      const params = [f.project_id ?? null, asOf];
-      const unanswered = (await c.query(
-        `SELECT r.id, r.text, r.priority, e.title AS evaluation FROM recommendation r JOIN evaluation e ON e.id = r.evaluation_id
-         WHERE r.status = 'open' AND ($1::uuid IS NULL OR e.project_id = $1) ORDER BY (r.priority = 'high') DESC, r.created_at`, [params[0]])).rows;
-      const overdue = (await c.query(
-        `SELECT a.id, a.description, a.responsible_name, a.due_date, ($2::date - a.due_date)::int AS days_late, r.id AS recommendation_id, r.priority
-         FROM recommendation_action a JOIN recommendation r ON r.id = a.recommendation_id JOIN evaluation e ON e.id = r.evaluation_id
-         WHERE a.status = 'open' AND a.due_date < $2::date AND ($1::uuid IS NULL OR e.project_id = $1) ORDER BY a.due_date`, params)).rows;
-      const counts = (await c.query(
-        `SELECT r.status, count(*)::int AS n FROM recommendation r JOIN evaluation e ON e.id = r.evaluation_id
-         WHERE ($1::uuid IS NULL OR e.project_id = $1) GROUP BY r.status`, [params[0]])).rows;
-      const by = Object.fromEntries(counts.map((x) => [x.status, x.n]));
-      const total = counts.reduce((s, x) => s + x.n, 0);
-      return { as_of: asOf, total, by_status: by, closure_rate: total ? Math.round(((by.closed ?? 0) / total) * 1000) / 10 : null, unanswered, overdue_actions: overdue };
-    });
+    return run(req, (c) => followUp(c, f.project_id, asOf));
   });
+}
+
+export async function followUp(c: pg.PoolClient, projectId: string | undefined, asOf: string) {
+  const params = [projectId ?? null, asOf];
+  const unanswered = (await c.query(
+    `SELECT r.id, r.text, r.priority, e.title AS evaluation FROM recommendation r JOIN evaluation e ON e.id = r.evaluation_id
+     WHERE r.status = 'open' AND ($1::uuid IS NULL OR e.project_id = $1) ORDER BY (r.priority = 'high') DESC, r.created_at`, [params[0]])).rows;
+  const overdue = (await c.query(
+    `SELECT a.id, a.description, a.responsible_name, a.due_date, ($2::date - a.due_date)::int AS days_late, r.id AS recommendation_id, r.priority
+     FROM recommendation_action a JOIN recommendation r ON r.id = a.recommendation_id JOIN evaluation e ON e.id = r.evaluation_id
+     WHERE a.status = 'open' AND a.due_date < $2::date AND ($1::uuid IS NULL OR e.project_id = $1) ORDER BY a.due_date`, params)).rows;
+  const counts = (await c.query(
+    `SELECT r.status, count(*)::int AS n FROM recommendation r JOIN evaluation e ON e.id = r.evaluation_id
+     WHERE ($1::uuid IS NULL OR e.project_id = $1) GROUP BY r.status`, [params[0]])).rows;
+  const by = Object.fromEntries(counts.map((x) => [x.status, x.n]));
+  const total = counts.reduce((s, x) => s + x.n, 0);
+  return { as_of: asOf, total, by_status: by, closure_rate: total ? Math.round(((by.closed ?? 0) / total) * 1000) / 10 : null, unanswered, overdue_actions: overdue };
 }

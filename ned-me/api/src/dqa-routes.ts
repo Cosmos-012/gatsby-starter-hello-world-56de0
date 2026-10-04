@@ -9,7 +9,7 @@ const RUN = ['admin', 'me_manager', 'reviewer'];
 const Uuid = z.string().uuid();
 const AsOf = z.string().date().optional();
 
-async function assess(c: pg.PoolClient, projectId: string | undefined, asOf: string) {
+export async function assess(c: pg.PoolClient, projectId: string | undefined, asOf: string) {
   const inds = (await c.query(
     `SELECT i.id, i.code, i.type, i.frequency, i.verification_status, i.data_source,
             r.min_value::float8 AS min, r.max_value::float8 AS max, r.max_change_ratio::float8 AS ratio, r.grace_days

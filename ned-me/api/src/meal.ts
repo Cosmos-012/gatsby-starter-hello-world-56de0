@@ -146,19 +146,21 @@ export function registerMeal(app: FastifyInstance, pool: pg.Pool) {
   app.get('/meal/summary', { preHandler: guard(READ) }, async (req) => {
     const f = z.object({ project_id: Uuid.optional(), as_of: z.string().date().optional() }).parse(req.query);
     const asOf = f.as_of ?? new Date().toISOString().slice(0, 10);
-    return run(req, async (c) => {
-      const p = [f.project_id ?? null, asOf];
-      const one = async (sql: string) => (await c.query(sql, sql.includes('$2') ? p : [p[0]])).rows;   // pg refuse les paramètres inutilisés
-      const [kindStatus, overdue, ackOverdue, sat, res, lessons] = await Promise.all([
-        one(`SELECT kind, status, count(*)::int AS n FROM feedback WHERE ($1::uuid IS NULL OR project_id = $1) GROUP BY kind, status ORDER BY kind, status`),
-        one(`SELECT count(*)::int AS n FROM feedback WHERE ($1::uuid IS NULL OR project_id = $1) AND status NOT IN ('resolved','closed') AND due_at < $2::date`),
-        one(`SELECT count(*)::int AS n FROM feedback WHERE ($1::uuid IS NULL OR project_id = $1) AND acknowledged_at IS NULL AND status = 'received' AND ack_due_at < $2::date`),
-        one(`SELECT round(avg(satisfaction_score)::numeric, 2)::float8 AS avg, count(*)::int AS n FROM feedback WHERE ($1::uuid IS NULL OR project_id = $1) AND kind = 'satisfaction'`),
-        one(`SELECT round(avg(extract(epoch FROM (resolved_at - received_at)) / 86400)::numeric, 1)::float8 AS avg_days, count(*)::int AS n FROM feedback WHERE ($1::uuid IS NULL OR project_id = $1) AND resolved_at IS NOT NULL`),
-        one(`SELECT category, status, count(*)::int AS n FROM lesson WHERE ($1::uuid IS NULL OR project_id = $1) GROUP BY category, status ORDER BY category, status`),
-      ]);
-      return { as_of: asOf, feedback_by_kind_status: kindStatus, overdue_resolution: overdue[0].n, overdue_acknowledgement: ackOverdue[0].n,
-        satisfaction: sat[0], resolution: res[0], lessons: lessons };
-    });
+    return run(req, (c) => mealSummary(c, f.project_id, asOf));
   });
+}
+
+export async function mealSummary(c: pg.PoolClient, projectId: string | undefined, asOf: string) {
+  const p = [projectId ?? null, asOf];
+  const one = async (sql: string) => (await c.query(sql, sql.includes('$2') ? p : [p[0]])).rows;   // pg refuse les paramètres inutilisés
+  const [kindStatus, overdue, ackOverdue, sat, res, lessons] = await Promise.all([
+    one(`SELECT kind, status, count(*)::int AS n FROM feedback WHERE ($1::uuid IS NULL OR project_id = $1) GROUP BY kind, status ORDER BY kind, status`),
+    one(`SELECT count(*)::int AS n FROM feedback WHERE ($1::uuid IS NULL OR project_id = $1) AND status NOT IN ('resolved','closed') AND due_at < $2::date`),
+    one(`SELECT count(*)::int AS n FROM feedback WHERE ($1::uuid IS NULL OR project_id = $1) AND acknowledged_at IS NULL AND status = 'received' AND ack_due_at < $2::date`),
+    one(`SELECT round(avg(satisfaction_score)::numeric, 2)::float8 AS avg, count(*)::int AS n FROM feedback WHERE ($1::uuid IS NULL OR project_id = $1) AND kind = 'satisfaction'`),
+    one(`SELECT round(avg(extract(epoch FROM (resolved_at - received_at)) / 86400)::numeric, 1)::float8 AS avg_days, count(*)::int AS n FROM feedback WHERE ($1::uuid IS NULL OR project_id = $1) AND resolved_at IS NOT NULL`),
+    one(`SELECT category, status, count(*)::int AS n FROM lesson WHERE ($1::uuid IS NULL OR project_id = $1) GROUP BY category, status ORDER BY category, status`),
+  ]);
+  return { as_of: asOf, feedback_by_kind_status: kindStatus, overdue_resolution: overdue[0].n, overdue_acknowledgement: ackOverdue[0].n,
+    satisfaction: sat[0], resolution: res[0], lessons: lessons };
 }
