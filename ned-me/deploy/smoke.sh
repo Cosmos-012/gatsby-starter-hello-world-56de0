@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Test de fumée de bout en bout sur la pile Docker Compose réelle (db + api + MinIO). Utilisé en CI.
+# Test de fumée de bout en bout sur la pile Docker Compose réelle (db + api + stockage S3). Utilisé en CI.
 set -euo pipefail
 cd "$(dirname "$0")"
 DC="docker compose --env-file .env -f docker-compose.yml -f docker-compose.ci.yml"
@@ -23,7 +23,7 @@ TOKEN=$($DC exec -T api node --input-type=module -e "import { SignJWT } from 'jo
 api() { curl -fsS -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' "$@"; }
 api localhost:3000/projects | grep -q '"code":"J"' || die "projet non visible"; ok "lecture sous RLS avec un jeton (tenant $T)"
 
-# Preuve : téléversement réel vers MinIO par URL présignée, confirmation, téléchargement, comparaison des octets
+# Preuve : téléversement réel vers le stockage S3 par URL présignée, confirmation, téléchargement, comparaison des octets
 printf 'preuve terrain NED %s\n' "$(date -u +%s)" > /tmp/evidence.txt
 SIZE=$(stat -c%s /tmp/evidence.txt)
 EV=$(api -X POST localhost:3000/evidence -d "{\"project_id\":\"$PROJECT\",\"kind\":\"document\",\"title\":\"CI\",\"filename\":\"evidence.txt\",\"content_type\":\"text/plain\",\"size_bytes\":$SIZE}")
@@ -32,7 +32,7 @@ ID=$(echo "$EV" | jq -r .id); URL=$(echo "$EV" | jq -r .upload.url)
 curl -fsS -X PUT -H 'content-type: text/plain' --data-binary @/tmp/evidence.txt "$URL" >/dev/null || die "téléversement S3 refusé"
 cat /tmp/evidence.txt /tmp/evidence.txt > /tmp/evidence-big.txt
 [ "$(curl -s -o /dev/null -w '%{http_code}' -X PUT -H 'content-type: text/plain' --data-binary @/tmp/evidence-big.txt "$URL")" = 403 ] || die "un fichier d'une autre taille a été accepté"
-ok "URL présignée : téléversement accepté, taille différente refusée par MinIO (403)"
+ok "URL présignée : téléversement accepté, taille différente refusée par le stockage S3 (403)"
 [ "$(api -X POST -d '{}' "localhost:3000/evidence/$ID/complete" | jq -r .status)" = available ] || die "confirmation"
 DL=$(api "localhost:3000/evidence/$ID/download" | jq -r .url)
 cmp -s <(curl -fsS "$DL") /tmp/evidence.txt || die "contenu téléchargé différent"; ok "preuve confirmée puis téléchargée à l'identique"

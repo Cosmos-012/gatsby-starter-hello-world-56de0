@@ -31,12 +31,14 @@ test('la taille et le type déclarés sont SIGNÉS : un client ne peut pas tél�
   assert.notEqual(new URL(put.url).searchParams.get('X-Amz-Signature'), new URL(other.url).searchParams.get('X-Amz-Signature'));
 });
 
-test('somme de contrôle SHA-256 transmise en base64 et exigée du client', async () => {
+test('somme SHA-256 portée par l\'URL signée ; aucune somme CRC32 implicite (corps vide) ajoutée par le SDK', async () => {
   const st = s3Storage({ ...base });
   const put = await st.presignPut('t/e/f.pdf', { contentType: 'application/pdf', size: 10, sha256Hex: HEX });
-  assert.equal(put.headers['x-amz-checksum-sha256'], Buffer.from(HEX, 'hex').toString('base64'));
-  const none = await st.presignPut('t/e/f.pdf', { contentType: 'application/pdf', size: 10 });
-  assert.equal(none.headers['x-amz-checksum-sha256'], undefined);
+  const q = new URL(put.url).searchParams;
+  assert.equal(q.get('x-amz-checksum-sha256'), Buffer.from(HEX, 'hex').toString('base64'));
+  assert.equal(put.headers['x-amz-checksum-sha256'], undefined);          // pas d'en-tête redondant (casserait la signature)
+  const none = new URL((await st.presignPut('t/e/f.pdf', { contentType: 'application/pdf', size: 10 })).url).searchParams;
+  for (const k of none.keys()) assert.ok(!k.startsWith('x-amz-checksum') && k !== 'x-amz-sdk-checksum-algorithm', `paramètre de somme implicite : ${k}`);   // régression BadDigest
 });
 
 test('sans adresse publique : repli sur l\'adresse interne (développement local)', async () => {

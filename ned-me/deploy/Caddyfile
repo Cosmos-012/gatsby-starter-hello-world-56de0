@@ -6,5 +6,5 @@
 
 # Fichiers (URL présignées) : hôte dédié, sans réécriture de chemin ni d'hôte, sinon la signature S3 est invalide.
 files.{$NED_DOMAIN:localhost} {
-	reverse_proxy minio:9000
+	reverse_proxy storage:8333
 }

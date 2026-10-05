@@ -15,4 +15,11 @@ if (s3 && (!process.env.S3_ACCESS_KEY || !process.env.S3_SECRET_KEY)) throw new 
 const storage = s3
   ? s3Storage({ endpoint: s3, publicEndpoint: process.env.S3_PUBLIC_ENDPOINT || undefined, bucket: process.env.S3_BUCKET ?? 'ned-evidence', accessKeyId: process.env.S3_ACCESS_KEY!, secretAccessKey: process.env.S3_SECRET_KEY! })
   : memoryStorage();
+// Le stockage peut démarrer après l'API : on réessaie la création du bucket avant d'accepter du trafic.
+if (storage.ensureBucket) {
+  for (let i = 1; ; i++) {
+    try { await storage.ensureBucket(); break; }
+    catch (e) { if (i >= 30) throw e; console.warn(`stockage S3 indisponible (tentative ${i}/30)`); await new Promise((r) => setTimeout(r, 2000)); }
+  }
+}
 await buildApp(makePool(url), verify, storage, { logger: true, trustProxy: process.env.TRUST_PROXY === '1', rateLimitMax: process.env.RATE_LIMIT_MAX ? Number(process.env.RATE_LIMIT_MAX) : undefined }).listen({ port: Number(process.env.PORT ?? 3000), host: '0.0.0.0' });

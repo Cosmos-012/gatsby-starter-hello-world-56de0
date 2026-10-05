@@ -7,7 +7,8 @@
 | PostgreSQL 16 | postgresql.org | PostgreSQL License | Socle données, RLS | Service | Non | Notice de licence | Faible | Non |
 | PostGIS 3.4 | postgis/postgis | GPL-2.0+ | SIG | Service/extension (non lié au code applicatif) | Non | Pas de redistribution modifiée | Faible | Oui |
 | Keycloak 26 | keycloak/keycloak | Apache-2.0 | SSO, MFA, IAM | Service indépendant (OIDC) | Non | NOTICE | Moyen (patchs fréquents) | Non |
-| MinIO | minio/minio | AGPL-3.0 | Stockage des preuves | Service indépendant via API S3 ; **alternative S3-compatible (Garage, SeaweedFS) à évaluer si l'AGPL pose problème** | Non | AGPL : ne pas modifier/redistribuer sans publier | Moyen | Oui (juridique) |
+| SeaweedFS 4.48 | seaweedfs/seaweedfs | Apache-2.0 | Stockage S3 des preuves (par défaut) | Service indépendant, API S3 standard ; bucket créé par l'API au démarrage | Non | NOTICE Apache | Moyen (service exposé : hôte dédié via Caddy) | Non |
+| MinIO | minio/minio | AGPL-3.0 | **Retiré de la pile par défaut** : l'image `minio/minio` n'est plus téléchargeable sur Docker Hub (constaté en CI le 2026-10-04). Reste utilisable comme stockage S3 externe | — | — | AGPL | — | — |
 | KoboToolbox | kobotoolbox/kpi, kobocat | AGPL-3.0 | Collecte terrain offline | Service indépendant, intégration **par API uniquement** (aucun code copié) | Non | AGPL | Moyen | Oui (juridique) |
 | DHIS2 | dhis2/dhis2-core | BSD-3-Clause | Référence conceptuelle (indicateurs, périodes, org units) | Inspiration ; composants UI éventuels ultérieurement | Non | BSD : conserver copyright si code réutilisé | — | Oui |
 | Hikaya Activity / Indicator Library | à localiser | **Inconnue** | Référence projets/activités/KPI | Inspiration uniquement tant que licence non vérifiée | Non | — | — | **Oui, bloquant** |
@@ -21,7 +22,8 @@
 | Fastify / pg / jose / zod | fastify, node-postgres, panva/jose, colinhacks/zod | MIT | API, accès DB, JWT/OIDC, validation | Dépendances | Non | Notice MIT | Faible | Non (à confirmer au lockfile) |
 | @fastify/helmet, @fastify/rate-limit | fastify/fastify-helmet, fastify/fastify-rate-limit | MIT | En-têtes de sécurité, limitation de débit par IP | Dépendances | Non | Notice MIT | Faible | Non |
 | ExcelJS | exceljs/exceljs | MIT | Export Excel des rapports (RTL, bilingue) | Dépendance ; `overrides` uuid ≥ 11.1.1 (avis GHSA-w5hq-g745-h8pq) | Non | Notice MIT | Faible (0 vulnérabilité après override) | Non |
-| MinIO Client (mc) | minio/mc | AGPL-3.0 | Création du bucket au démarrage (conteneur ponctuel) | Service ponctuel, non lié au code | Non | AGPL | Faible | Oui (juridique, comme MinIO) |
 | Caddy | caddyserver/caddy | Apache-2.0 | Reverse proxy TLS | Service | Non | NOTICE | Faible | Non |
+
+Note : le stockage par défaut étant désormais SeaweedFS (Apache-2.0), la question AGPL ne concerne plus que KoboToolbox (intégration par API, sans code copié).
 
 Règle : Hikaya, Tangerine, Open Foris restent en « inspiration » jusqu'à vérification de licence documentée ici.
