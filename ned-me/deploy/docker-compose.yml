@@ -36,6 +36,16 @@ services:
       storage: { condition: service_started }   # l'API réessaie la création du bucket jusqu'à disponibilité
     ports: ["127.0.0.1:3000:3000"]
     restart: unless-stopped
+  web:
+    build: ../web
+    environment:
+      NED_API_URL: http://api:3000
+      NED_DEV_TOKEN: ${NED_DEV_TOKEN:-}            # développement/démo uniquement ; vide en production (connexion OIDC à venir)
+      NED_AR_NUMERALS: ${NED_AR_NUMERALS:-latn}    # latn : 0-9 ; arab : ٠-٩
+    depends_on:
+      api: { condition: service_started }
+    ports: ["127.0.0.1:3100:3100"]
+    restart: unless-stopped
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
     command: start-dev

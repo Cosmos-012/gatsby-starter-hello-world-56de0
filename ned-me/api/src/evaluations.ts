@@ -5,7 +5,7 @@ import { withTenant } from './db.ts';
 
 const READ = ['admin', 'me_manager', 'data_entry', 'reviewer', 'viewer'];
 const MANAGE = ['admin', 'me_manager'];
-const Uuid = z.string().uuid();
+const Uuid = z.guid();
 const Text = z.string().trim().min(3).max(4000);
 const TYPES = ['baseline', 'midterm', 'endterm', 'impact', 'outcome', 'process', 'thematic', 'rapid'] as const;
 const EVAL_STATUS = ['planned', 'ongoing', 'report_draft', 'completed', 'cancelled'] as const;

@@ -41,4 +41,11 @@ cmp -s <(curl -fsS "$DL") /tmp/evidence.txt || die "contenu téléchargé diffé
 REP=$(api -X POST localhost:3000/reports -d '{"type":"me","period_start":"2026-01-01","period_end":"2026-03-31"}' | jq -r .id)
 [ "$(curl -s -o /tmp/r.xlsx -w '%{http_code}' -H "authorization: Bearer $TOKEN" "localhost:3000/reports/$REP/export?format=xlsx&lang=ar,fr")" = 200 ] || die "export Excel"
 [ "$(head -c 2 /tmp/r.xlsx)" = "PK" ] || die "fichier Excel invalide"; ok "rapport généré et exporté en Excel"
+# Interface : image construite, page servie en arabe (RTL) ; sans jeton de session, message d'authentification et non une erreur 500
+for i in $(seq 1 60); do curl -fsS -o /dev/null localhost:3100/ar 2>/dev/null && break; [ "$i" = 60 ] && die "interface indisponible"; sleep 2; done
+PAGE=$(curl -fsS localhost:3100/ar)
+echo "$PAGE" | grep -q 'dir="rtl"' || die "page arabe sans dir=rtl"
+echo "$PAGE" | grep -q 'ما هو الأداء الحالي لمشروعي' || die "titre arabe absent"
+[ "$(curl -s -o /dev/null -w '%{http_code}' localhost:3100/)" = 307 ] || die "redirection de la racine"
+ok "interface servie (arabe RTL, redirection racine)"
 echo "SMOKE TESTS OK"

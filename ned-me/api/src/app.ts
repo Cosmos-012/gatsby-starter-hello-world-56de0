@@ -87,7 +87,7 @@ export function buildApp(pool: pg.Pool, verify: Verify, storage?: Storage, opts:
 
   app.post('/projects', async (req, reply) => {
     if (!need(req, reply, 'admin', 'me_manager')) return;
-    const b = z.object({ program_id: z.string().uuid(), code: z.string().min(1), name: Name }).parse(req.body);
+    const b = z.object({ program_id: z.guid(), code: z.string().min(1), name: Name }).parse(req.body);
     const row = await withTenant(pool, req.principal!, async (c) =>
       (await c.query('INSERT INTO project (tenant_id, program_id, code, name) VALUES (app.current_tenant(), $1, $2, $3) RETURNING id, code',
         [b.program_id, b.code, b.name])).rows[0]);
@@ -96,7 +96,7 @@ export function buildApp(pool: pg.Pool, verify: Verify, storage?: Storage, opts:
 
   app.get('/indicators/progress', async (req, reply) => {
     if (!need(req, reply, ...ANY)) return;
-    const q = z.object({ project_id: z.string().uuid().optional(), status: z.enum(['GREEN', 'AMBER', 'RED', 'GREY']).optional() }).parse(req.query);
+    const q = z.object({ project_id: z.guid().optional(), status: z.enum(['GREEN', 'AMBER', 'RED', 'GREY']).optional() }).parse(req.query);
     return withTenant(pool, req.principal!, async (c) =>
       (await c.query(
         `SELECT p.indicator_id, p.code, p.baseline, p.period, p.actual, p.target, p.gap, round(p.achievement, 4) AS achievement, p.status
@@ -108,7 +108,7 @@ export function buildApp(pool: pg.Pool, verify: Verify, storage?: Storage, opts:
   app.post('/indicator-values', async (req, reply) => {
     if (!need(req, reply, 'admin', 'me_manager', 'data_entry')) return;
     const b = z.object({
-      indicator_id: z.string().uuid(), period: z.string().min(4), period_end: z.string().date(),
+      indicator_id: z.guid(), period: z.string().min(4), period_end: z.string().date(),
       kind: z.enum(['target', 'actual']), value: z.number().finite(),
       dimensions: z.record(z.string(), z.string()).default({}), comment: z.string().optional(),
     }).parse(req.body);
@@ -121,7 +121,7 @@ export function buildApp(pool: pg.Pool, verify: Verify, storage?: Storage, opts:
   });
 
   app.post('/indicator-values/:id/transition', async (req, reply) => {
-    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const { id } = z.object({ id: z.guid() }).parse(req.params);
     const b = z.object({ to: z.enum(STATES), comment: z.string().optional() }).parse(req.body);
     return withTenant(pool, req.principal!, async (c) => {
       const cur = (await c.query('SELECT workflow_state FROM indicator_value WHERE id = $1 FOR UPDATE', [id])).rows[0];

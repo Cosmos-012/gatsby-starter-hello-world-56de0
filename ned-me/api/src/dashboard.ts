@@ -41,7 +41,7 @@ export function registerDashboard(app: FastifyInstance, pool: pg.Pool) {
   app.get('/dashboard/overview', async (req, reply) => {
     const p = (req as any).principal;
     if (!p.roles.some((r: string) => READ.includes(r))) return reply.code(403).send({ error: 'forbidden' });
-    const f = z.object({ project_id: z.string().uuid().optional(), as_of: z.string().date().optional(), period_end: z.string().date().optional() }).parse(req.query);
+    const f = z.object({ project_id: z.guid().optional(), as_of: z.string().date().optional(), period_end: z.string().date().optional() }).parse(req.query);
     return withTenant(pool, p, (c) => buildOverview(c, f));
   });
 }

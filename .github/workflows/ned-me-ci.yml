@@ -51,14 +51,47 @@ jobs:
         run: |
           cp .env.example .env
           sed -i 's/^DEV_JWT_SECRET=.*/DEV_JWT_SECRET=ci-only-secret-0123456789-abcdefghij/' .env
-          docker compose --env-file .env -f docker-compose.yml -f docker-compose.ci.yml up -d --build db storage api
+          docker compose --env-file .env -f docker-compose.yml -f docker-compose.ci.yml up -d --build db storage api web
           ./smoke.sh
       - name: Journaux et arrêt
         if: always()
         working-directory: ned-me/deploy
         run: |
-          docker compose --env-file .env -f docker-compose.yml -f docker-compose.ci.yml logs --no-color db api storage | tail -150
+          docker compose --env-file .env -f docker-compose.yml -f docker-compose.ci.yml logs --no-color db api storage web | tail -150
           docker compose --env-file .env -f docker-compose.yml -f docker-compose.ci.yml down -v
+  web:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 10
+    env:
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            ned-me/api/package-lock.json
+            ned-me/web/package-lock.json
+      - run: npm ci
+        working-directory: ned-me/api
+      - name: Typecheck, tests unitaires (i18n, pluriels, couverture des clés), build
+        run: npm ci && npm run typecheck && npm test && npm run build
+        working-directory: ned-me/web
+      - run: npx playwright install --with-deps chromium
+        working-directory: ned-me/web
+      - name: Bout en bout (base + vraie API + vrai serveur Next + Chromium)
+        run: PSQL_ADMIN="psql -h localhost -U postgres" ./e2e/run.sh
+        working-directory: ned-me/web
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: captures-interface, path: ned-me/web/e2e/screenshots, if-no-files-found: ignore }
   compose:
     runs-on: ubuntu-latest
     steps:

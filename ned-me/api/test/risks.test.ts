@@ -1,8 +1,8 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { SignJWT } from 'jose';
 import pg from 'pg';
+import { allMigrations } from './migrations.ts';
 import { makePool, withTenant } from '../src/db.ts';
 import { makeVerifier } from '../src/auth.ts';
 import { buildApp } from '../src/app.ts';
@@ -11,7 +11,6 @@ import { riskSummary } from '../src/risks.ts';
 const ADMIN = process.env.ADMIN_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/postgres';
 const DB = 'ned_risk_test', SECRET = 'test-secret-test-secret-test-secret';
 const T1 = 'aaaaaaaa-0000-0000-0000-000000000001', T2 = 'bbbbbbbb-0000-0000-0000-000000000002';
-const dir = new URL('../../db/migrations/', import.meta.url);
 let pool: pg.Pool, app: ReturnType<typeof buildApp>, projectId = '', resultId = '', indicatorId = '';
 const SEED = { sub: 'seed', tenantId: T1, roles: [] as string[] };
 const ASOF = '2026-12-01';
@@ -26,7 +25,7 @@ before(async () => {
   const admin = new pg.Client({ connectionString: ADMIN }); await admin.connect();
   await admin.query(`DROP DATABASE IF EXISTS ${DB}`); await admin.query(`CREATE DATABASE ${DB}`); await admin.end();
   const owner = new pg.Client({ connectionString: ADMIN.replace(/\/[^/]*$/, `/${DB}`) }); await owner.connect();
-  for (const f of ['001_foundation', '002_results_indicators', '004_arabic_search', '005_workflow', '006_dqa', '007_evidence', '008_evaluations', '009_meal', '010_reports', '011_risks']) await owner.query(readFileSync(new URL(`${f}.sql`, dir), 'utf8'));
+  for (const sql of allMigrations()) await owner.query(sql);
   await owner.query(`DROP ROLE IF EXISTS ned_risk_login; CREATE ROLE ned_risk_login LOGIN PASSWORD 'x' IN ROLE ned_app`);
   await owner.query(`INSERT INTO tenant (id,name) VALUES ('${T1}','A'),('${T2}','B')`);
   await owner.end();

@@ -15,7 +15,7 @@ const MANAGE = ['admin', 'me_manager'];
 const GENERATE = [...MANAGE, 'reviewer'];
 const READ = [...MANAGE, 'reviewer', 'data_entry', 'viewer'];
 const STATES = ['draft', 'submitted', 'review', 'validated', 'approved', 'published', 'archived'] as const;
-const Uuid = z.string().uuid();
+const Uuid = z.guid();
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 export function registerReports(app: FastifyInstance, pool: pg.Pool) {

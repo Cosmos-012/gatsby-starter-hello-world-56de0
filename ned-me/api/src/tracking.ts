@@ -14,7 +14,7 @@ export function registerTracking(app: FastifyInstance, pool: pg.Pool) {
   app.get('/indicators/tracking', async (req, reply) => {
     if (!(req as any).principal.roles.some((r: string) => READ.includes(r))) return reply.code(403).send({ error: 'forbidden' });
     const f = z.object({
-      project_id: z.string().uuid().optional(), result_id: z.string().uuid().optional(), org_id: z.string().uuid().optional(),
+      project_id: z.guid().optional(), result_id: z.guid().optional(), org_id: z.guid().optional(),
       period: z.string().optional(), status: z.enum(['GREEN', 'AMBER', 'RED', 'GREY']).optional(),
       dimensions: z.string().optional().transform((s, ctx) => {
         if (!s) return {};

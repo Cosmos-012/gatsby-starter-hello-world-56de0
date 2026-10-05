@@ -14,7 +14,7 @@ export const ALLOWED_TYPES = new Set([
   'application/vnd.ms-excel', 'application/msword',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
-const Uuid = z.string().uuid();
+const Uuid = z.guid();
 const KINDS = ['photo', 'report', 'dataset', 'survey', 'certificate', 'attendance', 'document', 'evaluation_report', 'supporting', 'url'] as const;
 const Target = z.object({ indicator_value_id: Uuid.optional(), indicator_id: Uuid.optional(), result_id: Uuid.optional() })
   .refine((t) => Object.values(t).filter(Boolean).length === 1, 'exactly one target required');

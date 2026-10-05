@@ -5,7 +5,7 @@ import { withTenant } from './db.ts';
 
 const Name = z.object({ fr: z.string().optional(), ar: z.string().optional(), en: z.string().optional() })
   .refine((n) => n.fr || n.ar || n.en, 'at least one language required');
-const Uuid = z.string().uuid();
+const Uuid = z.guid();
 const WRITE = ['admin', 'me_manager'];
 const READ = [...WRITE, 'data_entry', 'reviewer', 'viewer'];
 

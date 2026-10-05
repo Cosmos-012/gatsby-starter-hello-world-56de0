@@ -7,7 +7,7 @@ import { evaluate, type Ind, type Val } from './dqa.ts';
 
 const READ = ['admin', 'me_manager', 'data_entry', 'reviewer', 'viewer'];
 const RUN = ['admin', 'me_manager', 'reviewer'];
-const Uuid = z.string().uuid();
+const Uuid = z.guid();
 const AsOf = z.string().date().optional();
 
 export async function assess(c: pg.PoolClient, projectId: string | undefined, asOf: string) {

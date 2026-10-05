@@ -14,7 +14,9 @@
 | Hikaya Activity / Indicator Library | à localiser | **Inconnue** | Référence projets/activités/KPI | Inspiration uniquement tant que licence non vérifiée | Non | — | — | **Oui, bloquant** |
 | Tangerine | Tangerine-Community | GPL-3.0 (probable) | Référence offline | Inspiration uniquement (copyleft fort) | Non | — | — | Oui |
 | Open Foris | openforis | Variable selon module | Référence collecte/géo | Inspiration | Non | — | — | Oui |
-| Next.js / React | vercel/next.js | MIT | Frontend | Dépendance | Non | Notice MIT | Faible | Non |
+| Next.js 16 / React 19 | vercel/next.js, facebook/react | MIT | Interface (rendu serveur, sortie autonome) | Dépendance | Non | Notice MIT | Faible | Non |
+| Tailwind CSS 4 | tailwindlabs/tailwindcss | MIT | Styles (propriétés logiques pour le RTL) | Dépendance | Non | Notice MIT | Faible | Non |
+| Playwright 1.63 | microsoft/playwright | Apache-2.0 | Tests de bout en bout (Chromium) | Dépendance de développement | Non | NOTICE | Faible | Non |
 | Tailwind / shadcn/ui | — | MIT | UI | Dépendance / code copié (MIT) | Non | Notice MIT | Faible | Non |
 | Apache ECharts | apache/echarts | Apache-2.0 | Graphiques | Dépendance | Non | NOTICE | Faible | Non |
 | MapLibre GL JS | maplibre/maplibre-gl-js | BSD-3-Clause | Cartes | Dépendance | Non | Notice BSD | Faible | Non |

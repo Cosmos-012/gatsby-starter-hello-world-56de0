@@ -1,8 +1,8 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { SignJWT } from 'jose';
 import pg from 'pg';
+import { allMigrations } from './migrations.ts';
 import { makePool } from '../src/db.ts';
 import { makeVerifier } from '../src/auth.ts';
 import { buildApp } from '../src/app.ts';
@@ -10,7 +10,6 @@ import { buildApp } from '../src/app.ts';
 const ADMIN = process.env.ADMIN_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/postgres';
 const DB = 'ned_fw_test', SECRET = 'test-secret-test-secret-test-secret';
 const T1 = 'aaaaaaaa-0000-0000-0000-000000000001', T2 = 'bbbbbbbb-0000-0000-0000-000000000002';
-const dir = new URL('../../db/migrations/', import.meta.url);
 let pool: pg.Pool, app: ReturnType<typeof buildApp>;
 
 const tok = (sub: string, tenant: string, roles: string[]) =>
@@ -24,7 +23,7 @@ before(async () => {
   const admin = new pg.Client({ connectionString: ADMIN }); await admin.connect();
   await admin.query(`DROP DATABASE IF EXISTS ${DB}`); await admin.query(`CREATE DATABASE ${DB}`); await admin.end();
   const owner = new pg.Client({ connectionString: ADMIN.replace(/\/[^/]*$/, `/${DB}`) }); await owner.connect();
-  for (const f of ['001_foundation', '002_results_indicators', '004_arabic_search', '005_workflow', '006_dqa', '007_evidence', '008_evaluations']) await owner.query(readFileSync(new URL(`${f}.sql`, dir), 'utf8'));
+  for (const sql of allMigrations()) await owner.query(sql);
   await owner.query(`DROP ROLE IF EXISTS ned_fw_login; CREATE ROLE ned_fw_login LOGIN PASSWORD 'x' IN ROLE ned_app`);
   await owner.query(`INSERT INTO tenant (id,name) VALUES ('${T1}','A'),('${T2}','B')`);
   await owner.end();
@@ -78,4 +77,12 @@ test('droits et isolation sur le cadre', async () => {
   const r = await call('POST', `/projects/${projA}/results`, other, { level: 'impact', code: 'Z', name: { fr: 'z' } });
   assert.ok([422, 403].includes(r.status));
   assert.equal((await call('POST', '/programs', other, { code: 'Y', name: {} })).status, 400);
+});
+
+test('identifiants : tout UUID accepté par PostgreSQL l\'est par l\'API (pas seulement RFC 4122 v1-v8)', async () => {
+  const mgr = await tok('mgr', T1, ['me_manager']);
+  const nonRfc = '20000000-0000-0000-0000-000000000001';           // valide pour PostgreSQL, rejeté par z.string().uuid()
+  assert.equal((await call('GET', `/indicators?project_id=${nonRfc}`, mgr)).status, 200);
+  assert.equal((await call('GET', `/dashboard/overview?project_id=${nonRfc}`, mgr)).status, 200);
+  assert.equal((await call('GET', '/indicators?project_id=pas-un-uuid', mgr)).status, 400);
 });
