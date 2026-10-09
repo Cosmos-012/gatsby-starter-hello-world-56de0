@@ -6,10 +6,12 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE SCHEMA IF NOT EXISTS app;
 
 -- Rôle applicatif : jamais superuser, jamais BYPASSRLS.
+-- Les rôles sont globaux au cluster : « tester puis créer » n'est pas atomique, deux initialisations simultanées (tests en parallèle, plusieurs
+-- bases sur un même serveur) se disputent la création. On tente de créer et on tolère « déjà créé » (42710) ou sa variante de course (23505).
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ned_app') THEN
-    CREATE ROLE ned_app NOLOGIN NOSUPERUSER NOBYPASSRLS;
-  END IF;
+  CREATE ROLE ned_app NOLOGIN NOSUPERUSER NOBYPASSRLS;
+EXCEPTION WHEN duplicate_object OR unique_violation THEN
+  NULL;
 END $$;
 
 -- Tenant courant ; échoue fermé (NULL => aucune ligne visible).

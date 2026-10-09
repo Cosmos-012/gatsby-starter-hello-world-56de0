@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test --test-timeout=60000 test/*.test.ts",
+    "test": "tsx --test --test-force-exit --test-timeout=60000 test/*.test.ts",
     "start": "tsx src/server.ts"
   },
   "dependencies": {
