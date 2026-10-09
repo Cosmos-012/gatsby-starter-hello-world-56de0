@@ -5,6 +5,7 @@ on:
 jobs:
   db:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgis/postgis:16-3.4
@@ -23,6 +24,7 @@ jobs:
         run: WITH_POSTGIS=1 PSQL_ADMIN="psql -h localhost -U postgres" ned-me/db/tests/backup_restore.sh
   api:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgis/postgis:16-3.4
@@ -44,6 +46,7 @@ jobs:
         env: { S3_TEST_ENDPOINT: http://127.0.0.1:8333 }
   stack:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Pile Docker Compose réelle (db + api + stockage S3) et test de fumée de bout en bout
@@ -61,6 +64,7 @@ jobs:
           docker compose --env-file .env -f docker-compose.yml -f docker-compose.ci.yml down -v
   web:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgis/postgis:16-3.4
@@ -94,6 +98,7 @@ jobs:
         with: { name: captures-interface, path: ned-me/web/e2e/screenshots, if-no-files-found: ignore }
   compose:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - run: cp ned-me/deploy/.env.example ned-me/deploy/.env && docker compose -f ned-me/deploy/docker-compose.yml --env-file ned-me/deploy/.env config -q

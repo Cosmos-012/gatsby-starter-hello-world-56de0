@@ -13,13 +13,16 @@ export interface Storage {
 
 const hexToB64 = (h: string) => Buffer.from(h, 'hex').toString('base64');
 
-export function s3Storage(o: { endpoint: string; publicEndpoint?: string; region?: string; bucket: string; accessKeyId: string; secretAccessKey: string; expiresSeconds?: number }): Storage {
+export function s3Storage(o: { endpoint: string; publicEndpoint?: string; region?: string; bucket: string; accessKeyId: string; secretAccessKey: string; expiresSeconds?: number; requestTimeoutMs?: number }): Storage {
   const credentials = { accessKeyId: o.accessKeyId, secretAccessKey: o.secretAccessKey };
   // Le SDK AWS v3 ajoute par défaut aux URL présignées une somme CRC32 calculée sur un corps VIDE (x-amz-checksum-crc32=AAAAAA==) :
   // tout serveur S3 rejette alors le vrai fichier (BadDigest). On ne calcule une somme que lorsqu'elle est demandée (SHA-256 explicite).
   const base = { region: o.region ?? 'us-east-1', forcePathStyle: true, credentials,
     requestChecksumCalculation: 'WHEN_REQUIRED' as const, responseChecksumValidation: 'WHEN_REQUIRED' as const };
-  const s3 = new S3Client({ ...base, endpoint: o.endpoint });                         // accès serveur (réseau interne)
+  // Délais bornés : un stockage qui accepte la connexion mais ne répond pas ne doit jamais suspendre une requête API indéfiniment.
+  // throwOnRequestTimeout est indispensable : par défaut le SDK se contente d'un AVERTISSEMENT à l'expiration et laisse la requête pendante indéfiniment.
+  const requestHandler = { requestTimeout: o.requestTimeoutMs ?? 15_000, connectionTimeout: Math.min(5_000, o.requestTimeoutMs ?? 5_000), throwOnRequestTimeout: true };
+  const s3 = new S3Client({ ...base, endpoint: o.endpoint, requestHandler });          // accès serveur (réseau interne)
   // Les URL présignées sont consommées par le navigateur : elles doivent être signées pour l'adresse publique (la signature couvre l'hôte et le chemin,
   // le proxy ne doit donc ni réécrire le chemin ni changer l'hôte). Sans adresse publique, on retombe sur l'adresse interne (dev local).
   const signer = new S3Client({ ...base, endpoint: o.publicEndpoint ?? o.endpoint });
