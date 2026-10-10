@@ -1,0 +1,6 @@
+# Superset 6.1.0 : l'installation par défaut est inutilisable (constaté le 2026-10-10). Ces ajouts sont indispensables.
+apache-superset==6.1.0
+psycopg2-binary>=2.9
+rich                 # dépendance non déclarée par Superset : « No module named 'rich' » au démarrage de la CLI
+cachetools           # idem : provoque un faux message « Could not load database driver for: postgresql »
+flask-caching<2.4    # ≥ 2.4 : « SupersetMetastoreCache.__init__() got an unexpected keyword argument 'ignore_delete_many_errors' »

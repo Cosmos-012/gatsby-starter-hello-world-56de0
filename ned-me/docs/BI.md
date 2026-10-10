@@ -39,6 +39,19 @@ Un compte = un tenant : une source de données Superset **par tenant**. Supprime
 
 **Non testé** : intégration par jeton invité / SDK d'intégration, requêtes asynchrones (Redis + Celery), gros volumes, filtres de tableaux de bord, image Docker officielle, haute disponibilité. Aucun service Superset n'est donc fourni dans `docker-compose.yml`.
 
+## Tableau de bord prêt à l'emploi (FR / EN)
+
+`deploy/superset/provision.py` crée, de façon idempotente, la source de données (compte `bi_*` uniquement), 5 jeux de données sur les vues `bi.*` et 11 graphiques regroupés dans un tableau de bord : performance globale, couverture, satisfaction, indicateurs par statut (couleurs et libellés du produit), taux d'atteinte, risques, anomalies de qualité, retours, recommandations, table de suivi. Langues : `--lang fr|en` (pas d'arabe : choix du client).
+
+```
+BI_URI=… SUPERSET_PASSWORD=… python3 -I deploy/superset/provision.py --lang fr --source-name "NED — Projet"
+BI_URI=… SUPERSET_PASSWORD=… python3 -I deploy/superset/provision.py --lang en --slug ned-me-en --source-name "NED — Project"
+```
+
+Vérifié sur la graine e2e : 71,7 % (performance), 75 % (couverture), 1 indicateur par statut, 1 risque critique — identiques à `/dashboard/overview`. Un défaut trouvé à la relecture : `GREATEST(0, NULL)` vaut 0 en PostgreSQL, ce qui faisait compter un indicateur sans donnée comme 0 % (53,8 % au lieu de 71,7 %). Les graphiques « anomalies », « retours » et « recommandations » sont vides sur cette graine, qui n'en contient pas.
+
+Limite connue : l'interface Superset elle-même suit la langue du compte utilisateur ; seul le contenu du tableau de bord est localisé par le script.
+
 ## Tests
 
 `db/tests/bi_test.sh` (16 groupes, CI) joue un analyste malveillant : changement de tenant, accès direct aux tables, usurpation de rôle, fonction piégée, écriture, création de compte, lecture de **chaque** vue par chaque compte, comparaison de `bi.indicator_progress` à la vue de l'API. `BI_TEST_MUTATION=no_barrier|no_app_usage` retire une protection : le test **doit échouer**, ce que la CI vérifie.
