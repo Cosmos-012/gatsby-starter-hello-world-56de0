@@ -40,7 +40,13 @@ services:
     build: ../web
     environment:
       NED_API_URL: http://api:3000
-      NED_DEV_TOKEN: ${NED_DEV_TOKEN:-}            # développement/démo uniquement ; vide en production (connexion OIDC à venir)
+      NED_DEV_TOKEN: ${NED_DEV_TOKEN:-}            # développement/démo uniquement ; vide en production
+      # Connexion des utilisateurs (Keycloak). Issuer = URL publique du royaume, joignable aussi depuis ce conteneur.
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-ned-web}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      PUBLIC_URL: ${PUBLIC_URL:-}                  # ex. https://ned.example.org (sans / final)
+      SESSION_SECRET: ${SESSION_SECRET:-}          # 32 caractères minimum ; chiffre le cookie de session
       NED_AR_NUMERALS: ${NED_AR_NUMERALS:-latn}    # latn : 0-9 ; arab : ٠-٩
     depends_on:
       api: { condition: service_started }
@@ -48,13 +54,19 @@ services:
     restart: unless-stopped
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
-    command: start-dev
+    command: start-dev --import-realm
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro   # royaume « ned » : client ned-web, mappeur tenant_id. Changer le secret et supprimer l'utilisateur demo.
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://db:5432/ned
       KC_DB_SCHEMA: keycloak
       KC_DB_USERNAME: ned_owner
       KC_DB_PASSWORD: ${DB_PASSWORD}
+      KC_HTTP_RELATIVE_PATH: /auth
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: ${PUBLIC_URL:-http://localhost}/auth
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?requis}
     depends_on:

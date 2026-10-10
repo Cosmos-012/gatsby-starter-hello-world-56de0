@@ -10,7 +10,8 @@ const secret = process.env.DEV_JWT_SECRET;
 if (!jwks && !secret) throw new Error('OIDC_JWKS_URL (prod) ou DEV_JWT_SECRET (dev) requis');
 const verify = makeVerifier(jwks ? { jwksUrl: jwks, issuer: process.env.OIDC_ISSUER } : { secret: secret! });
 const s3 = process.env.S3_ENDPOINT;
-if (!s3 && !secret) throw new Error('S3_ENDPOINT requis en production (le stockage mémoire est réservé au développement)');
+// Le stockage mémoire perd les pièces à chaque redémarrage : réservé au développement ou à un test explicitement déclaré (NED_ALLOW_MEMORY_STORAGE=1).
+if (!s3 && !secret && process.env.NED_ALLOW_MEMORY_STORAGE !== '1') throw new Error('S3_ENDPOINT requis en production (le stockage mémoire est réservé au développement)');
 if (s3 && (!process.env.S3_ACCESS_KEY || !process.env.S3_SECRET_KEY)) throw new Error('S3_ACCESS_KEY et S3_SECRET_KEY requis');
 const storage = s3
   ? s3Storage({ endpoint: s3, publicEndpoint: process.env.S3_PUBLIC_ENDPOINT || undefined, bucket: process.env.S3_BUCKET ?? 'ned-evidence', accessKeyId: process.env.S3_ACCESS_KEY!, secretAccessKey: process.env.S3_SECRET_KEY! })

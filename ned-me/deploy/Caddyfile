@@ -1,7 +1,7 @@
 {$NED_DOMAIN:localhost} {
 	encode gzip
 	handle_path /api/* { reverse_proxy api:3000 }
-	handle_path /auth/* { reverse_proxy keycloak:8080 }
+	handle /auth/* { reverse_proxy keycloak:8080 }   # Keycloak sous /auth (KC_HTTP_RELATIVE_PATH) ; la connexion de l'interface web est sous /sso
 	handle { reverse_proxy web:3100 }
 }
 

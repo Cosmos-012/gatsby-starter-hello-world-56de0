@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { apiGet, isDevToken } from '@/lib/api';
+import { oidcConfig, readSession } from '@/lib/session';
 import { formatters, isLocale, LOCALES, messagesFor, translate, translatePlural } from '@/lib/i18n';
 import type { Overview, Project, Status } from '@/lib/types';
 
@@ -32,6 +33,9 @@ export default async function OverviewPage({ params, searchParams }: { params: P
   const asOf = typeof sp.as_of === 'string' && isRealDate(sp.as_of) ? sp.as_of : undefined;
   const q = new URLSearchParams({ ...(project ? { project_id: project } : {}), ...(asOf ? { as_of: asOf } : {}) });
 
+  const session = await readSession();
+  const oidc = !!oidcConfig();
+  const authError = typeof sp.auth_error === 'string' && ['state', 'denied', 'token'].includes(sp.auth_error) ? sp.auth_error : undefined;
   const [projects, overview] = await Promise.all([apiGet<Project[]>('/projects'), apiGet<Overview>(`/dashboard/overview?${q}`)]);
 
   const keep = new URLSearchParams({ ...(project ? { project } : {}), ...(asOf ? { as_of: asOf } : {}) }).toString();
@@ -47,6 +51,19 @@ export default async function OverviewPage({ params, searchParams }: { params: P
             className={l === locale ? 'font-semibold underline underline-offset-4' : 'secondary hover:underline'}>{t(`lang.${l}`)}</Link>
         ))}
       </nav>
+      {oidc && (
+        <div className="flex items-center gap-3 text-sm" data-testid="auth">
+          {session ? (
+            <form method="post" action="/sso/logout" className="flex items-center gap-3">
+              <input type="hidden" name="return" value={`/${locale}`} />
+              {session.name && <span className="secondary" data-testid="auth-user">{t('auth.user', { name: session.name })}</span>}
+              <button type="submit" className="underline underline-offset-4">{t('auth.logout')}</button>
+            </form>
+          ) : (
+            <a href={`/sso/login?return=${encodeURIComponent(`/${locale}`)}`} className="underline underline-offset-4" data-testid="auth-login">{t('auth.login')}</a>
+          )}
+        </div>
+      )}
     </header>
   );
 
@@ -54,6 +71,7 @@ export default async function OverviewPage({ params, searchParams }: { params: P
     return (
       <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
         {header}
+        {authError && <p role="alert" className="card sev-critical" data-testid="auth-error">{t(`auth.error.${authError}`)}</p>}
         <p role="alert" className="card sev-critical">{t(`error.${overview.reason}`)}</p>
       </main>
     );
@@ -76,7 +94,7 @@ export default async function OverviewPage({ params, searchParams }: { params: P
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
-      {isDevToken() && <p className="rounded-md border px-3 py-2 text-xs secondary" style={{ borderColor: 'var(--border)' }}>{t('dev.banner')}</p>}
+      {!session && isDevToken() && <p className="rounded-md border px-3 py-2 text-xs secondary" style={{ borderColor: 'var(--border)' }}>{t('dev.banner')}</p>}
       {header}
 
       <form method="get" className="card flex flex-wrap items-end gap-4" aria-label={t('filter.project')}>
