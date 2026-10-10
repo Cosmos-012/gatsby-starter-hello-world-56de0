@@ -1,0 +1,7 @@
+# Surcouche CI : expose le stockage S3 sur l'hôte pour que les URL présignées soient utilisables par le test de fumée.
+services:
+  storage:
+    ports: ["127.0.0.1:8333:8333"]
+  api:
+    environment:
+      S3_PUBLIC_ENDPOINT: http://localhost:8333

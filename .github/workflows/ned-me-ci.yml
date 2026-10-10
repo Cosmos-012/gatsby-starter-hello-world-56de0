@@ -1,0 +1,127 @@
+name: ned-me-ci
+on:
+  push: { paths: ['ned-me/**'] }
+  pull_request: { paths: ['ned-me/**'] }
+jobs:
+  db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 10
+    env:
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: DB migrations + RLS tests (avec PostGIS)
+        run: WITH_POSTGIS=1 PSQL_ADMIN="psql -h localhost -U postgres" ned-me/db/tests/run.sh
+      - name: "Accès BI hostile (analyste avec SQL libre — isolation, fonction piégée, droits)"
+        env: { PGHOST: localhost }
+        run: PSQL_ADMIN="psql -h localhost -U postgres" ned-me/db/tests/bi_test.sh
+      - name: "Auto-vérification du test BI (il DOIT échouer quand une protection est retirée)"
+        env: { PGHOST: localhost }
+        run: |
+          for m in no_barrier no_app_usage; do
+            if BI_TEST_MUTATION=$m PSQL_ADMIN="psql -h localhost -U postgres" ned-me/db/tests/bi_test.sh; then
+              echo "Le test BI n'a pas détecté la mutation $m : il ne protège pas ce point" >&2; exit 1
+            fi
+          done
+      - name: Sauvegarde / restauration (intégrité, RLS, cloisonnement)
+        env: { PGHOST: localhost, PGUSER: postgres }
+        run: WITH_POSTGIS=1 PSQL_ADMIN="psql -h localhost -U postgres" ned-me/db/tests/backup_restore.sh
+  api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: ned-me/api/package-lock.json }
+      - name: Serveur S3 réel (SeaweedFS) pour les tests d'intégration du stockage
+        run: |
+          printf '{"identities":[{"name":"ned","credentials":[{"accessKey":"nedtestkey","secretKey":"nedtestsecret123"}],"actions":["Admin","Read","Write","List","Tagging"]}]}' > /tmp/s3.json
+          docker run -d --name s3 -p 8333:8333 -v /tmp/s3.json:/etc/s3.json:ro chrislusf/seaweedfs:4.48 server -dir=/data -ip.bind=0.0.0.0 -volume.max=5 -filer -s3 -s3.port=8333 -s3.config=/etc/s3.json
+          for i in $(seq 1 60); do curl -s -o /dev/null localhost:8333/ && break; sleep 1; done
+      - run: npm ci && npm run typecheck && npm test
+        working-directory: ned-me/api
+        env: { S3_TEST_ENDPOINT: http://127.0.0.1:8333 }
+  stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pile Docker Compose réelle (db + api + stockage S3) et test de fumée de bout en bout
+        working-directory: ned-me/deploy
+        run: |
+          cp .env.example .env
+          sed -i 's/^DEV_JWT_SECRET=.*/DEV_JWT_SECRET=ci-only-secret-0123456789-abcdefghij/' .env
+          docker compose --env-file .env -f docker-compose.yml -f docker-compose.ci.yml up -d --build db storage api web
+          ./smoke.sh
+      - name: Journaux et arrêt
+        if: always()
+        working-directory: ned-me/deploy
+        run: |
+          docker compose --env-file .env -f docker-compose.yml -f docker-compose.ci.yml logs --no-color db api storage web | tail -150
+          docker compose --env-file .env -f docker-compose.yml -f docker-compose.ci.yml down -v
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 10
+    env:
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            ned-me/api/package-lock.json
+            ned-me/web/package-lock.json
+      - run: npm ci
+        working-directory: ned-me/api
+      - name: Typecheck, tests unitaires (i18n, pluriels, couverture des clés), build
+        run: npm ci && npm run typecheck && npm test && npm run build
+        working-directory: ned-me/web
+      - run: npx playwright install --with-deps chromium
+        working-directory: ned-me/web
+      - name: Bout en bout (base + vraie API + vrai serveur Next + Chromium)
+        run: PSQL_ADMIN="psql -h localhost -U postgres" ./e2e/run.sh
+        working-directory: ned-me/web
+      - name: Keycloak réel (tarball officiel, royaume de test = royaume livré + utilisateur de démonstration)
+        run: |
+          curl -fsSL -o /tmp/kc.tgz https://github.com/keycloak/keycloak/releases/download/26.0.8/keycloak-26.0.8.tar.gz
+          tar xzf /tmp/kc.tgz -C /tmp
+          mkdir -p /tmp/keycloak-26.0.8/data/import
+          python3 ned-me/web/e2e/make-realm.py > /tmp/keycloak-26.0.8/data/import/realm-ned.json
+          (KC_BOOTSTRAP_ADMIN_USERNAME=admin KC_BOOTSTRAP_ADMIN_PASSWORD=admin-ci-1 KC_HTTP_PORT=8180 nohup /tmp/keycloak-26.0.8/bin/kc.sh start-dev --import-realm > /tmp/kc.log 2>&1 &)
+          for i in $(seq 1 90); do curl -fs localhost:8180/realms/ned >/dev/null 2>&1 && exit 0; sleep 2; done
+          tail -50 /tmp/kc.log; exit 1
+      - name: Bout en bout avec connexion Keycloak (code + PKCE, jeton vérifié par l'API via JWKS)
+        run: E2E_OIDC_ISSUER=http://localhost:8180/realms/ned E2E_OIDC_SECRET=CHANGE_ME_IN_DEPLOYMENT PSQL_ADMIN="psql -h localhost -U postgres" ./e2e/run.sh
+        working-directory: ned-me/web
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: captures-interface, path: ned-me/web/e2e/screenshots, if-no-files-found: ignore }
+  compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp ned-me/deploy/.env.example ned-me/deploy/.env && docker compose -f ned-me/deploy/docker-compose.yml --env-file ned-me/deploy/.env config -q

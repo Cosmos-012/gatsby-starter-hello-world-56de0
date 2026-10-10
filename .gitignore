@@ -13,3 +13,4 @@ public/
 # OS
 .DS_Store
 Thumbs.db
+ned-me/api/node_modules/
