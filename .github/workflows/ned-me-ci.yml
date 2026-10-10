@@ -104,6 +104,18 @@ jobs:
       - name: Bout en bout (base + vraie API + vrai serveur Next + Chromium)
         run: PSQL_ADMIN="psql -h localhost -U postgres" ./e2e/run.sh
         working-directory: ned-me/web
+      - name: Keycloak réel (tarball officiel, royaume de test = royaume livré + utilisateur de démonstration)
+        run: |
+          curl -fsSL -o /tmp/kc.tgz https://github.com/keycloak/keycloak/releases/download/26.0.8/keycloak-26.0.8.tar.gz
+          tar xzf /tmp/kc.tgz -C /tmp
+          mkdir -p /tmp/keycloak-26.0.8/data/import
+          python3 ned-me/web/e2e/make-realm.py > /tmp/keycloak-26.0.8/data/import/realm-ned.json
+          (KC_BOOTSTRAP_ADMIN_USERNAME=admin KC_BOOTSTRAP_ADMIN_PASSWORD=admin-ci-1 KC_HTTP_PORT=8180 nohup /tmp/keycloak-26.0.8/bin/kc.sh start-dev --import-realm > /tmp/kc.log 2>&1 &)
+          for i in $(seq 1 90); do curl -fs localhost:8180/realms/ned >/dev/null 2>&1 && exit 0; sleep 2; done
+          tail -50 /tmp/kc.log; exit 1
+      - name: Bout en bout avec connexion Keycloak (code + PKCE, jeton vérifié par l'API via JWKS)
+        run: E2E_OIDC_ISSUER=http://localhost:8180/realms/ned E2E_OIDC_SECRET=CHANGE_ME_IN_DEPLOYMENT PSQL_ADMIN="psql -h localhost -U postgres" ./e2e/run.sh
+        working-directory: ned-me/web
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: captures-interface, path: ned-me/web/e2e/screenshots, if-no-files-found: ignore }
