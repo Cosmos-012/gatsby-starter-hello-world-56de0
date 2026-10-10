@@ -24,6 +24,7 @@
 | Fastify / pg / jose / zod | fastify, node-postgres, panva/jose, colinhacks/zod | MIT | API, accès DB, JWT/OIDC, validation | Dépendances | Non | Notice MIT | Faible | Non (à confirmer au lockfile) |
 | @fastify/helmet, @fastify/rate-limit | fastify/fastify-helmet, fastify/fastify-rate-limit | MIT | En-têtes de sécurité, limitation de débit par IP | Dépendances | Non | Notice MIT | Faible | Non |
 | ExcelJS | exceljs/exceljs | MIT | Export Excel des rapports (RTL, bilingue) | Dépendance ; `overrides` uuid ≥ 11.1.1 (avis GHSA-w5hq-g745-h8pq) | Non | Notice MIT | Faible (0 vulnérabilité après override) | Non |
+| Apache Superset 6.1.0 | apache/superset | Apache-2.0 | **Optionnel** : analyse libre sur les vues `bi` (voir `docs/BI.md`) | Service indépendant, jamais dans la pile par défaut ; non redistribué | Non | NOTICE Apache | Moyen : installation par défaut cassée (dépendances non déclarées), consommation ≈ 650 Mo, accès SQL à encadrer par la base | Oui : image Docker non testée |
 | Caddy | caddyserver/caddy | Apache-2.0 | Reverse proxy TLS | Service | Non | NOTICE | Faible | Non |
 
 Note : le stockage par défaut étant désormais SeaweedFS (Apache-2.0), la question AGPL ne concerne plus que KoboToolbox (intégration par API, sans code copié).

@@ -54,5 +54,8 @@ Premier écran « Quelle est la performance actuelle de mon projet ? » en **ren
 **Authentification** : provisoirement `NED_DEV_TOKEN` (jeton de service, bandeau « mode développement » affiché). **La connexion utilisateur OIDC (Keycloak) n'est pas encore branchée** : c'est le prérequis avant tout usage réel.
 **Tests** : unitaires (clés identiques dans les 3 langues, catégories plurielles complètes, paramètres cohérents, toutes les alertes de l'API traduites) et bout en bout `web/e2e/run.sh` (base + graine déterministe `db/seed/e2e.sql` + vraie API + build de production Next + Chromium) : chiffres identiques à l'API, RTL, absence de texte français en arabe, pluriels, changement de langue, paramètres invalides, captures clair/sombre/mobile sans débordement.
 
+## Accès BI (migration 012, `docs/BI.md`)
+Comptes de lecture pour outils BI (Superset…) liés à **un tenant par l'identité de connexion**, sans aucun droit sur les tables, lisant 11 vues `bi` (pas de données personnelles, pas de signalements sensibles, valeurs validées seulement). Raison : le paramètre de session `app.tenant_id` est modifiable par tout rôle qui exécute du SQL libre (démontré). Test hostile en CI, avec auto-vérification par mutation.
+
 ## Feuille de route
 Fait : Phase 0, Phase 1 (modèle, RLS, audit, compose, CI, API de base, workflow, recherche arabe). Fait aussi : Phases 2 à 11 (API), exploitation, premier écran FR/AR/EN. Suivant : connexion OIDC (Keycloak) de l'interface, écrans de saisie et de suivi, collecte (KoboToolbox), GIS, copilote IA.

@@ -19,6 +19,17 @@ jobs:
       - uses: actions/checkout@v4
       - name: DB migrations + RLS tests (avec PostGIS)
         run: WITH_POSTGIS=1 PSQL_ADMIN="psql -h localhost -U postgres" ned-me/db/tests/run.sh
+      - name: "Accès BI hostile (analyste avec SQL libre — isolation, fonction piégée, droits)"
+        env: { PGHOST: localhost }
+        run: PSQL_ADMIN="psql -h localhost -U postgres" ned-me/db/tests/bi_test.sh
+      - name: "Auto-vérification du test BI (il DOIT échouer quand une protection est retirée)"
+        env: { PGHOST: localhost }
+        run: |
+          for m in no_barrier no_app_usage; do
+            if BI_TEST_MUTATION=$m PSQL_ADMIN="psql -h localhost -U postgres" ned-me/db/tests/bi_test.sh; then
+              echo "Le test BI n'a pas détecté la mutation $m : il ne protège pas ce point" >&2; exit 1
+            fi
+          done
       - name: Sauvegarde / restauration (intégrité, RLS, cloisonnement)
         env: { PGHOST: localhost, PGUSER: postgres }
         run: WITH_POSTGIS=1 PSQL_ADMIN="psql -h localhost -U postgres" ned-me/db/tests/backup_restore.sh
