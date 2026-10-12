@@ -1,14 +1,29 @@
 # Maven
-nuxeo-studio/target/
-nuxeo-studio/*.jar
+extensions/ecm-nuxeo-studio/target/
+extensions/ecm-nuxeo-studio/*.jar
 
-# Node / Gatsby
+# Local Nuxeo connection config — copied from the .template, may hold
+# real credentials/tokens once edited. Never commit the real file.
+extensions/ecm-nuxeo-studio/config/nuxeo-local.properties
+
+# Node / frontend build output
 node_modules/
+.next/
 .cache/
 public/
+dist/
 
-# Runtime temp
-/tmp/nx_*.txt
+# Backend build output
+backend/target/
+backend/bin/
+
+# Local discovery output (may contain host paths/credentials)
+docs/discovery/*.local.json
+docs/discovery/*.local.md
+
+# Backups (large binaries, never committed)
+backups/*
+!backups/.gitkeep
 
 # OS
 .DS_Store

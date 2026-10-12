@@ -1,0 +1,98 @@
+<!-- DocuCentral - view layout for DCControlledDocument -->
+<dom-module id="nuxeo-dccontrolleddocument-view-layout">
+  <template>
+    <style include="docucentral-styles nuxeo-styles"></style>
+
+    <div class="dc-grid">
+      <div>
+        <label>[[i18n('label.docucentral.reference')]]</label>
+        <div class="dc-reference">[[document.properties.dcx:reference]]</div>
+      </div>
+      <div>
+        <label>[[i18n('label.docucentral.status')]]</label>
+        <div>
+          <span class$="dc-badge [[document.state]]">
+            [[i18n(_stateLabel(document.state))]]
+          </span>
+        </div>
+      </div>
+      <div>
+        <label>[[i18n('label.docucentral.department')]]</label>
+        <div>[[document.properties.dcx:department]]</div>
+      </div>
+      <div>
+        <label>[[i18n('label.docucentral.documentClass')]]</label>
+        <div>[[document.properties.dcx:documentClass]]</div>
+      </div>
+      <div>
+        <label>[[i18n('label.docucentral.confidentiality')]]</label>
+        <div>[[document.properties.dcx:confidentiality]]</div>
+      </div>
+      <div>
+        <label>[[i18n('label.docucentral.version')]]</label>
+        <div>[[document.properties.uid:major_version]].[[document.properties.uid:minor_version]]</div>
+      </div>
+    </div>
+
+    <div class="dc-section-title">[[i18n('label.docucentral.accountability')]]</div>
+    <div class="dc-grid">
+      <div>
+        <label>[[i18n('label.docucentral.owner')]]</label>
+        <div>[[document.properties.dcx:owner]]</div>
+      </div>
+      <div>
+        <label>[[i18n('label.docucentral.reviewers')]]</label>
+        <div>[[_join(document.properties.dcx:reviewers)]]</div>
+      </div>
+      <div>
+        <label>[[i18n('label.docucentral.approver')]]</label>
+        <div>[[document.properties.dcx:approver]]</div>
+      </div>
+    </div>
+
+    <div class="dc-section-title">[[i18n('label.docucentral.governance')]]</div>
+    <div class="dc-grid">
+      <div>
+        <label>[[i18n('label.docucentral.effectiveDate')]]</label>
+        <div>[[formatDate(document.properties.dcx:effectiveDate)]]</div>
+      </div>
+      <div>
+        <label>[[i18n('label.docucentral.nextReviewDate')]]</label>
+        <div class$="[[_overdueClass(document.properties.dcx:nextReviewDate)]]">
+          [[formatDate(document.properties.dcx:nextReviewDate)]]
+        </div>
+      </div>
+      <div>
+        <label>[[i18n('label.docucentral.retentionYears')]]</label>
+        <div>[[document.properties.dcx:retentionYears]]</div>
+      </div>
+    </div>
+
+    <template is="dom-if" if="[[document.properties.dcx:rejectionReason]]">
+      <div class="dc-section-title">[[i18n('label.docucentral.rejectionReason')]]</div>
+      <div class="dc-overdue">[[document.properties.dcx:rejectionReason]]</div>
+    </template>
+  </template>
+
+  <script>
+    Polymer({
+      is: 'nuxeo-dccontrolleddocument-view-layout',
+      behaviors: [Nuxeo.LayoutBehavior],
+      properties: {
+        document: { type: Object }
+      },
+      _stateLabel: function (state) {
+        return 'label.docucentral.state.' + (state || 'draft');
+      },
+      _join: function (values) {
+        return (values && values.length) ? values.join(', ') : '';
+      },
+      _overdueClass: function (nextReviewDate) {
+        if (!nextReviewDate) {
+          return '';
+        }
+        return (new Date(nextReviewDate) < new Date()) ? 'dc-overdue' : '';
+      }
+    });
+  </script>
+</dom-module>

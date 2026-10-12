@@ -1,0 +1,41 @@
+<!--
+  DocuCentral - Web UI slot registrations.
+  Plugs the action bar into the document view and the dashboard into the
+  application drawer, without patching any core Web UI element.
+-->
+<dom-module id="docucentral-slots">
+  <template>
+
+    <!-- Lifecycle buttons on the document view -->
+    <nuxeo-slot slot="DOCUMENT_ACTIONS" name="docucentralActions"></nuxeo-slot>
+    <nuxeo-slot-content name="docucentralActionsContent" slot="DOCUMENT_ACTIONS" order="5">
+      <template>
+        <docucentral-actions document="[[document]]"></docucentral-actions>
+      </template>
+    </nuxeo-slot-content>
+
+    <!-- Governance dashboard as a drawer page -->
+    <nuxeo-slot-content name="docucentralDashboardPage" slot="DRAWER_PAGES" order="60">
+      <template>
+        <docucentral-dashboard name="docucentral" visible="[[visible]]"></docucentral-dashboard>
+      </template>
+    </nuxeo-slot-content>
+
+    <nuxeo-slot-content name="docucentralDashboardItem" slot="DRAWER_ITEMS" order="60">
+      <template>
+        <a name="docucentral" href$="[[urlFor('page', 'docucentral')]]">
+          <iron-icon icon="nuxeo:folder"></iron-icon>
+          <span class="label">[[i18n('label.docucentral.dashboard')]]</span>
+        </a>
+      </template>
+    </nuxeo-slot-content>
+
+  </template>
+
+  <script>
+    Polymer({
+      is: 'docucentral-slots',
+      behaviors: [Nuxeo.I18nBehavior, Nuxeo.RoutingBehavior]
+    });
+  </script>
+</dom-module>

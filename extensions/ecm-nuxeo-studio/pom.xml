@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.project.nuxeo</groupId>
+  <artifactId>nuxeo-studio-local</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <name>DocuCentral - Nuxeo Studio Local</name>
+  <description>DocuCentral controlled-document MVP, built on the Nuxeo Studio Community Cookbook</description>
+
+  <repositories>
+    <repository>
+      <id>nuxeo-public</id>
+      <url>https://packages.nuxeo.com/repository/maven-public/</url>
+      <releases><enabled>true</enabled></releases>
+      <snapshots><enabled>true</enabled></snapshots>
+    </repository>
+  </repositories>
+
+  <properties>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- Override with your Nuxeo server version -->
+    <nuxeo.version>2023.10.0</nuxeo.version>
+  </properties>
+
+  <!--
+    No dependencies: this bundle ships only XML contributions, Web UI elements
+    and vocabulary data — there is no Java source to compile. That keeps the
+    build fully offline and reproducible.
+
+    If you add Java classes later, re-add the Nuxeo artifacts with
+    <scope>provided</scope> and make sure the build machine can reach
+    https://packages.nuxeo.com/repository/maven-public/:
+
+      org.nuxeo.ecm.core:nuxeo-core:${nuxeo.version}
+      org.nuxeo.ecm.automation:nuxeo-automation-core:${nuxeo.version}
+      org.nuxeo.ecm.platform:nuxeo-platform-webapp-core:${nuxeo.version}
+  -->
+
+  <build>
+    <plugins>
+      <!-- Package as a Nuxeo bundle using the checked-in MANIFEST.MF.
+           maven-bundle-plugin is deliberately not used: it only activates for
+           <packaging>bundle</packaging>, so the Nuxeo-Component header was
+           silently missing from the JAR. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.1</version>
+        <configuration>
+          <archive>
+            <manifestFile>src/main/resources/META-INF/MANIFEST.MF</manifestFile>
+          </archive>
+        </configuration>
+      </plugin>
+      <!-- Copy resources to deployment folder via: mvn process-resources -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.3.1</version>
+        <configuration>
+          <encoding>UTF-8</encoding>
+        </configuration>
+      </plugin>
+    </plugins>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+      </resource>
+    </resources>
+  </build>
+</project>

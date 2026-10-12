@@ -1,0 +1,125 @@
+<!--
+  DocuCentral - lifecycle action bar.
+  Each button calls the matching scripted automation operation and refreshes
+  the document; buttons are shown only when the lifecycle state allows them.
+-->
+<dom-module id="docucentral-actions">
+  <template>
+    <style include="docucentral-styles nuxeo-styles">
+      :host { display: inline-block; }
+      paper-button { margin-right: 4px; }
+    </style>
+
+    <nuxeo-operation id="submitOp" op="javascript.docucentral_SubmitForReview"
+                     input="[[document.uid]]"></nuxeo-operation>
+    <nuxeo-operation id="approveOp" op="javascript.docucentral_Approve"
+                     input="[[document.uid]]"></nuxeo-operation>
+    <nuxeo-operation id="rejectOp" op="javascript.docucentral_Reject"
+                     input="[[document.uid]]"></nuxeo-operation>
+    <nuxeo-operation id="publishOp" op="javascript.docucentral_Publish"
+                     input="[[document.uid]]"></nuxeo-operation>
+
+    <template is="dom-if" if="[[_isState(document, 'draft')]]">
+      <paper-button noink class="primary" on-tap="_submit">
+        [[i18n('command.docucentral.submit')]]
+      </paper-button>
+    </template>
+
+    <template is="dom-if" if="[[_canApprove(document)]]">
+      <paper-button noink class="primary" on-tap="_approve">
+        [[i18n('command.docucentral.approve')]]
+      </paper-button>
+      <paper-button noink on-tap="_reject">
+        [[i18n('command.docucentral.reject')]]
+      </paper-button>
+    </template>
+
+    <template is="dom-if" if="[[_canPublish(document)]]">
+      <paper-button noink class="primary" on-tap="_publish">
+        [[i18n('command.docucentral.publish')]]
+      </paper-button>
+    </template>
+
+    <nuxeo-dialog id="rejectDialog" with-backdrop>
+      <h2>[[i18n('label.docucentral.rejectionReason')]]</h2>
+      <nuxeo-textarea value="{{rejectReason}}" required
+                      label="[[i18n('label.docucentral.rejectionReason')]]"></nuxeo-textarea>
+      <div class="buttons">
+        <paper-button dialog-dismiss>[[i18n('command.cancel')]]</paper-button>
+        <paper-button class="primary" on-tap="_confirmReject">
+          [[i18n('command.docucentral.reject')]]
+        </paper-button>
+      </div>
+    </nuxeo-dialog>
+  </template>
+
+  <script>
+    Polymer({
+      is: 'docucentral-actions',
+      behaviors: [Nuxeo.I18nBehavior],
+      properties: {
+        document: { type: Object },
+        rejectReason: { type: String, value: '' }
+      },
+
+      _isState: function (doc, state) {
+        return !!doc && doc.state === state;
+      },
+
+      _hasPermission: function (doc, permission) {
+        return !!doc && !!doc.contextParameters &&
+               Array.isArray(doc.contextParameters.permissions) &&
+               doc.contextParameters.permissions.indexOf(permission) !== -1;
+      },
+
+      _canApprove: function (doc) {
+        return this._isState(doc, 'review') && this._hasPermission(doc, 'DCApprove');
+      },
+
+      _canPublish: function (doc) {
+        return this._isState(doc, 'approved') && this._hasPermission(doc, 'DCApprove');
+      },
+
+      _run: function (op, params) {
+        op.params = params || {};
+        return op.execute().then(function () {
+          this.dispatchEvent(new CustomEvent('document-updated', {
+            bubbles: true, composed: true
+          }));
+        }.bind(this)).catch(function (error) {
+          this.dispatchEvent(new CustomEvent('notify', {
+            bubbles: true, composed: true,
+            detail: { message: (error && error.message) || this.i18n('label.docucentral.actionFailed') }
+          }));
+        }.bind(this));
+      },
+
+      _submit: function () {
+        var reviewers = (this.document.properties && this.document.properties['dcx:reviewers']) || [];
+        return this._run(this.$$('#submitOp'), { reviewers: reviewers.join(',') });
+      },
+
+      _approve: function () {
+        return this._run(this.$$('#approveOp'), {});
+      },
+
+      _reject: function () {
+        this.$$('#rejectDialog').open();
+      },
+
+      _confirmReject: function () {
+        if (!this.rejectReason) {
+          return;
+        }
+        this.$$('#rejectDialog').close();
+        var reason = this.rejectReason;
+        this.rejectReason = '';
+        return this._run(this.$$('#rejectOp'), { reason: reason });
+      },
+
+      _publish: function () {
+        return this._run(this.$$('#publishOp'), {});
+      }
+    });
+  </script>
+</dom-module>

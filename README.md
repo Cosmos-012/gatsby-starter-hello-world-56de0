@@ -1,234 +1,89 @@
-# Nuxeo Studio Local Setup — Community Cookbook
+# Roznama ERP
 
-Local development environment for using the
-[Nuxeo Studio Community Cookbook](https://github.com/nuxeo/nuxeo-studio-community-cookbook)
-with your local Nuxeo Platform server.
+Roznama ERP is an enterprise ERP/CRM/BI/AI platform being built by
+re-engineering an existing **Onfinity ERP Community 6.4.1.0** installation
+into a branded, modernized, commercial-ready product — without rewriting
+what already works. See `docs/00-master-charter.md` for the full governing
+rules and `ARCHITECTURE.md` / `ROADMAP.md` for the target design and phase
+plan.
 
-## Prerequisites
+## Where things stand right now
 
-| Tool | Version | Notes |
-|------|---------|-------|
-| Java | 11+ | Required for Maven build |
-| Maven | 3.6+ | For building the Nuxeo plugin |
-| cURL | any | Used by fetch scripts |
-| Nuxeo Server | LTS 2021+ / 2023 | Running locally |
+This repository has just been reorganized into the Roznama ERP workspace
+layout. **Phase 0 (environment discovery) is blocked**: Onfinity and
+PostgreSQL run on a separate machine that this cloud workspace cannot
+reach. One extension is already ahead of the sequence and done:
 
-## Project Structure
+- **`extensions/ecm-nuxeo-studio/`** — a controlled-document management
+  MVP (DocuCentral) built on Nuxeo and the Nuxeo Studio Community
+  Cookbook. Content model, 5-state lifecycle, governance dashboard, and
+  deploy/validate tooling are complete and structurally verified; see
+  `extensions/ecm-nuxeo-studio/docs/DOCUCENTRAL.md`.
 
-```
-nuxeo-studio/
-├── config/
-│   └── nuxeo-local.properties    # Local server connection settings
-├── modules/                       # Downloaded cookbook modules (git-ignored)
-│   ├── workflow-status/
-│   ├── user-group-management/
-│   └── ...
-├── scripts/
-│   ├── fetch-module.sh           # Download any cookbook module
-│   ├── deploy.sh                 # Build + hot-reload to local Nuxeo
-│   ├── check-server.sh           # Verify Nuxeo server is reachable
-│   └── import-studio-xml.sh     # Import XML via REST API
-├── src/
-│   └── main/resources/
-│       ├── META-INF/MANIFEST.MF
-│       └── OSGI-INF/
-│           └── cookbook-contrib.xml   # Your XML contributions
-└── pom.xml                       # Maven project
-```
+Everything else (Onfinity inventory, domain mapping, API, Roznama UI,
+workflow, business extensions, BI, AI, security hardening, productization)
+is sequenced in `ROADMAP.md` and gated on Phase 0 discovery completing.
 
----
+## Running Phase 0 discovery
 
-## Quick Start
+Onfinity and PostgreSQL live on a machine this session cannot reach. To
+unblock Phase 1, run the discovery script **on that machine**:
 
-### 1. Configure Local Server
-
-Edit `nuxeo-studio/config/nuxeo-local.properties`:
-
-```properties
-NUXEO_URL=http://localhost:8080/nuxeo
-NUXEO_ADMIN_USER=Administrator
-NUXEO_ADMIN_PASSWORD=Administrator
-NUXEO_HOME=/opt/nuxeo/server          # path to your Nuxeo install
+**Windows (PowerShell):**
+```powershell
+cd path\to\this\repo\scripts
+.\phase0-discovery.ps1
 ```
 
-### 2. Enable Hot Reload on Your Nuxeo Server
-
-Add to `$NUXEO_HOME/bin/nuxeo.conf`:
-
-```
-org.nuxeo.dev=true
-```
-
-Then restart Nuxeo once to apply.
-
-### 3. Verify the Server
-
+**Linux/Docker host:**
 ```bash
-cd nuxeo-studio
-./scripts/check-server.sh
+cd scripts
+./phase0-discovery.sh
 ```
 
-### 4. Browse and Fetch a Cookbook Module
+Both are read-only — they inspect, they never install, start, stop, or
+modify anything. Each writes a timestamped report to `docs/discovery/`
+(git-ignored). **Review that report for secrets** (passwords, connection
+strings, tokens), then transcribe the redacted findings into
+`docs/01-system-inventory.md` and commit that file. From there, work
+through `docs/02-architecture.md` … `docs/10-reengineering-plan.md` in
+order — see `docs/00-master-charter.md` for why the order matters.
 
-```bash
-# List all 60 available modules
-./scripts/fetch-module.sh --list
-
-# Download a specific module
-./scripts/fetch-module.sh workflow-status
-./scripts/fetch-module.sh user-group-management
-./scripts/fetch-module.sh send-email-from-webui
-
-# Download all modules at once
-./scripts/fetch-module.sh --all
-```
-
-### 5. Install a Module on Your Local Nuxeo
-
-Each module has two parts — **Modeler** (backend XML) and **Designer** (frontend HTML):
-
-#### Option A — Via Nuxeo Studio (cloud)
-
-1. Open your Studio project at `connect.nuxeo.com`
-2. **Modeler**: Go to `Advanced Settings → XML Extensions` → paste the `.xml` content
-3. **Designer**: Go to `Resources` → upload the HTML files from `designer/ui/`
-4. Click **Hot Reload** in Studio
-
-#### Option B — Direct Maven Deploy (no Studio account needed)
-
-1. Copy modeler XML content into `src/main/resources/OSGI-INF/cookbook-contrib.xml`
-2. Build and deploy:
-   ```bash
-   ./scripts/deploy.sh
-   ```
-3. Designer HTML files go to: `$NUXEO_HOME/nxserver/nuxeo.war/ui/`
-
-#### Option C — REST API Import
-
-```bash
-./scripts/import-studio-xml.sh workflow-status
-```
-
----
-
-## Available Cookbook Modules (60 total)
-
-### Analytics & Reporting
-- `Analytics-KPIs-Examples` — Custom KPI widgets
-- `workflow-status` — Monitor active workflow instances
-- `generic-dashboard` — Configurable analytics dashboard
-- `project-metrics` — Project progress tracking
-
-### Document & Layout
-- `document-viewer-with-loading-message` — Enhanced viewer
-- `carousel` — Image/document carousel
-- `progress-bar` — Visual progress indicator
-- `toggleable-form` — Collapsible form sections
-- `collapse` — Collapsible content sections
-- `highlight` — Text highlighting
-- `qr-code` — QR code display widget
-
-### Search & Navigation
-- `cascading-fields` — Dynamic dependent dropdowns
-- `virtual-tree` — Virtual folder navigation
-- `parent-container-search` — Search by parent container
-- `interactive-pdf-search` — Search within PDFs
-- `color-search` — Search by dominant color
-
-### User & Security
-- `user-group-management` — Group administration UI
-- `bulk-workflow-reassignment` — Reassign tasks in bulk
-- `saml-user-mapping` — SAML attribute mapping
-- `sensitive-data` — Mask sensitive field values
-- `ssn` — SSN field masking
-- `nuxeo-user-preferences` — User preference storage
-
-### Automation & Business Logic
-- `automation-script-utils` — Reusable automation helpers
-- `send-email-from-webui` — Trigger emails from UI
-- `email-templates-nuxeo` — HTML email templates
-- `create-from-template` — Create docs from templates
-- `actions-versioned-documents` — Versioning actions
-- `delete-all-trashed-documents` — Bulk trash cleanup
-- `copy-move` — Copy/move document actions
-- `link-to-task-from-automation` — Link tasks in scripts
-
-### Digital Asset Management
-- `video-thumbnail` — Custom video thumbnails
-- `video-conversions` — Video format conversion
-- `replace-rendition` — Replace document renditions
-- `eml-previewer` — Preview .eml email files
-- `preview-tiff-attachments` — TIFF file preview
-- `nev-with-custom-blob-field` — Custom blob viewer
-
-### AI / ML
-- `google-vision-ocr` — OCR via Google Vision API
-- `sensitive-data` — AI-based sensitive data detection
-
-### UI Components
-- `barcode-widget` — Barcode display
-- `currency` — Currency input/display
-- `nuxeo-date-time-picker` — Date/time picker
-- `nuxeo-operation-button-no-icon` — Operation button
-- `nuxeo-operation-button-with-navigation` — Button with nav
-- `nuxeo-operation-button-with-spinner` — Button with spinner
-- `inject-html` — Inject HTML fragments
-- `web-ui-user-header` — Custom user header
-
-### Integrations
-- `salesforce-ui` — Salesforce metadata display
-- `geodistance-search-and-google-map` — Geo search + map
-
----
-
-## Hot Reload Workflow
+## Repository layout
 
 ```
-Edit cookbook-contrib.xml
-        ↓
-./scripts/deploy.sh
-        ↓
-Nuxeo hot-reloads automatically
-        ↓
-Refresh browser
+docs/          Phase 0-3 deliverables, domain model, master charter
+architecture/  Diagrams, ADRs
+database/      Schema maps, migrations (never destructive, always backed up first)
+source/        Reference material on the Onfinity source, once accessible
+frontend/      Roznama Experience layer (Next.js) — scaffolded at Phase 6
+backend/       Roznama API / service layer — scaffolded at Phase 5
+extensions/    Business + ECM extensions (ecm-nuxeo-studio lives here)
+ai/            AI orchestrator, tools, agents — Phase 10
+bi/            Analytics pipeline, dashboards — Phase 9
+devops/        Docker Compose, CI/CD
+tests/         Cross-cutting E2E/security/performance suites
+scripts/       Discovery, backup, and operational scripts
+backups/       Local backup artifacts (git-ignored)
 ```
 
----
+Each folder above has its own `README.md` with its current status. Most
+say "not started" by design — see `docs/00-master-charter.md` §7 on
+avoiding complexity ahead of need.
 
-## Nuxeo Server Tips
+## Key documents
 
-### Start/Stop
-```bash
-$NUXEO_HOME/bin/nuxeoctl start
-$NUXEO_HOME/bin/nuxeoctl stop
-$NUXEO_HOME/bin/nuxeoctl status
-```
+| Document | Purpose |
+|---|---|
+| `docs/00-master-charter.md` | Governing rules for every phase and every contributor/agent |
+| `ARCHITECTURE.md` | Target architecture (layers, non-negotiable API-first boundary) |
+| `ROADMAP.md` | Full phase plan with status |
+| `docs/brand-domain-model.md` | Phase 2 domain entities, mapped to Onfinity as discovery proceeds |
+| `extensions/ecm-nuxeo-studio/docs/DOCUCENTRAL.md` | The one extension already built |
 
-### View Logs
-```bash
-tail -f $NUXEO_HOME/log/server.log
-```
+## Product naming note
 
-### Connect REST API
-```bash
-# List all document types
-curl -u Administrator:Administrator \
-  http://localhost:8080/nuxeo/api/v1/config/types
-
-# Run automation operation
-curl -X POST -u Administrator:Administrator \
-  -H "Content-Type: application/json" \
-  http://localhost:8080/nuxeo/api/v1/automation/Document.Query \
-  -d '{"params":{"query":"SELECT * FROM Document WHERE ecm:isProxy = 0 LIMIT 10"}}'
-```
-
----
-
-## Resources
-
-- [Cookbook Repository](https://github.com/nuxeo/nuxeo-studio-community-cookbook)
-- [Nuxeo Documentation](https://doc.nuxeo.com/)
-- [Studio Modeler Guide](https://doc.nuxeo.com/studio/nuxeo-studio/)
-- [Web UI Developer Guide](https://doc.nuxeo.com/nxdoc/web-ui/)
-- [Nuxeo REST API](https://doc.nuxeo.com/nxdoc/rest-api/)
-- [Nuxeo CLI](https://doc.nuxeo.com/nxdoc/nuxeo-cli/)
+The engineering plan this repo implements was originally drafted under the
+working title "Brand Solutions ERP." The product name is **Roznama ERP**;
+treat any remaining "Brand Solutions" reference in older material as that
+placeholder, not a second product.
