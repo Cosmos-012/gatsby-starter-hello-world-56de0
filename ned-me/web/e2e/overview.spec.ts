@@ -92,6 +92,7 @@ test('filtre : formulaire sans JavaScript ; paramètres invalides ignorés sans 
 test('captures (relecture visuelle) : FR clair, AR sombre, mobile', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 1400 });
   await page.goto(`/fr?${Q}`); await page.screenshot({ path: 'e2e/screenshots/fr-light.png', fullPage: true });
+  await page.goto(`/en?${Q}`); await page.screenshot({ path: 'e2e/screenshots/en-light.png', fullPage: true });
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.goto(`/ar?${Q}`); await page.screenshot({ path: 'e2e/screenshots/ar-dark.png', fullPage: true });
   await page.emulateMedia({ colorScheme: 'light' });
