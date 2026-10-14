@@ -40,10 +40,11 @@ export default async function OverviewPage({ params, searchParams }: { params: P
 
   const keep = new URLSearchParams({ ...(project ? { project } : {}), ...(asOf ? { as_of: asOf } : {}) }).toString();
   const header = (
-    <header className="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <p className="text-sm muted">{t('app.title')}</p>
-        <h1 className="text-2xl font-semibold">{t('app.question')}</h1>
+    <header className="topbar">
+     <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
+      <div className="flex items-center gap-3">
+        <span className="brand-mark" aria-hidden="true">N</span>
+        <p className="text-sm font-semibold">{t('app.title')}</p>
       </div>
       <nav aria-label={t('lang.switch')} className="flex gap-3 text-sm">
         {LOCALES.map((l) => (
@@ -64,16 +65,24 @@ export default async function OverviewPage({ params, searchParams }: { params: P
           )}
         </div>
       )}
+     </div>
     </header>
   );
 
+  const title = <h1 className="text-2xl font-semibold sm:text-3xl">{t('app.question')}</h1>;
+
   if (!overview.ok) {
     return (
-      <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
-        {header}
+      <>
+      <a href="#main" className="skip">{t('a11y.skip')}</a>
+      {header}
+      <main id="main" className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
+        {title}
         {authError && <p role="alert" className="card sev-critical" data-testid="auth-error">{t(`auth.error.${authError}`)}</p>}
         <p role="alert" className="card sev-critical">{t(`error.${overview.reason}`)}</p>
+        {oidc && !session && <p><a href={`/sso/login?return=${encodeURIComponent(`/${locale}`)}`} className="link-btn inline-block" style={{ background: 'var(--bar)', color: '#fff', borderColor: 'var(--bar)' }}>{t('auth.login')}</a></p>}
       </main>
+      </>
     );
   }
   const o = overview.data;
@@ -93,9 +102,12 @@ export default async function OverviewPage({ params, searchParams }: { params: P
   };
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
+    <>
+    <a href="#main" className="skip">{t('a11y.skip')}</a>
+    {header}
+    <main id="main" className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
+      {title}
       {!session && isDevToken() && <p className="rounded-md border px-3 py-2 text-xs secondary" style={{ borderColor: 'var(--border)' }}>{t('dev.banner')}</p>}
-      {header}
 
       <form method="get" className="card flex flex-wrap items-end gap-4" aria-label={t('filter.project')}>
         <label className="flex flex-col gap-1 text-sm">
@@ -118,7 +130,7 @@ export default async function OverviewPage({ params, searchParams }: { params: P
       {/* Chiffres clés */}
       <section aria-labelledby="kpis" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <h2 id="kpis" className="sr-only">{t('kpi.overall')}</h2>
-        <Kpi testId="kpi-overall" label={t('kpi.overall')} value={ratioOrNone(p.overall)} hint={t('kpi.overall_hint')} source={p.source} sourceLabel={t('common.source')} />
+        <Kpi hero testId="kpi-overall" label={t('kpi.overall')} value={ratioOrNone(p.overall)} hint={t('kpi.overall_hint')} source={p.source} sourceLabel={t('common.source')} />
         <Kpi testId="kpi-coverage" label={t('kpi.coverage')} value={ratioOrNone(p.coverage)} hint={t('kpi.coverage_hint', { with: f.num(p.with_data), total: f.num(p.indicators_total) })} source={p.source} sourceLabel={t('common.source')} />
         <Kpi testId="kpi-dq" label={t('kpi.dq')} value={o.data_quality.average_score == null ? t('kpi.no_data') : `${f.num(o.data_quality.average_score)} / ${f.num(100)}`} ltr
           hint={t('kpi.dq_hint', { errors: f.num(o.data_quality.open_issues.error), warnings: f.num(o.data_quality.open_issues.warning) })} source={o.data_quality.source} sourceLabel={t('common.source')} />
@@ -129,6 +141,13 @@ export default async function OverviewPage({ params, searchParams }: { params: P
         {/* Statuts : icône + libellé + couleur réservée, jamais la couleur seule */}
         <section aria-labelledby="status" className="card space-y-3">
           <h2 id="status" className="font-semibold">{t('status.title')}</h2>
+          {p.indicators_total > 0 && (
+            <div className="stack" role="img" aria-label={STATUS_ORDER.map((s) => `${t(`status.${s}`)} ${f.num(p.by_status[s] ?? 0)}`).join(', ')}>
+              {STATUS_ORDER.filter((s) => (p.by_status[s] ?? 0) > 0).map((s) => (
+                <span key={s} className={`seg-${s}`} style={{ flexGrow: p.by_status[s] }} title={`${t(`status.${s}`)} : ${f.num(p.by_status[s])}`} />
+              ))}
+            </div>
+          )}
           <ul className="space-y-2">
             {STATUS_ORDER.map((s) => (
               <li key={s} data-testid={`status-${s}`} className="flex items-center gap-3">
@@ -139,7 +158,7 @@ export default async function OverviewPage({ params, searchParams }: { params: P
               </li>
             ))}
           </ul>
-          <p className="src">{t('common.source')} : <code>{p.source}</code></p>
+          <details className="src"><summary>{t('common.source')}</summary><code>{p.source}</code></details>
         </section>
 
         {/* Niveaux de résultats : une seule série, valeur écrite à côté de chaque barre */}
@@ -159,7 +178,7 @@ export default async function OverviewPage({ params, searchParams }: { params: P
               </li>
             ))}
           </ul>
-          <p className="src">{t('common.source')} : <code>{p.source}</code></p>
+          <details className="src"><summary>{t('common.source')}</summary><code>{p.source}</code></details>
         </section>
       </div>
 
@@ -169,9 +188,9 @@ export default async function OverviewPage({ params, searchParams }: { params: P
         {o.alerts.length === 0 ? <p className="muted">{t('alerts.none')}</p> : (
           <ul className="space-y-2" data-testid="alerts">
             {o.alerts.map((a, i) => (
-              <li key={`${a.type}-${i}`} data-testid="alert" data-type={a.type} className="flex items-start gap-3">
-                <span className={`sev-${a.severity} shrink-0 text-xs font-semibold uppercase`}>
-                  <span aria-hidden="true">{a.severity === 'critical' ? '⛔ ' : '⚠ '}</span>{t(`severity.${a.severity}`)}
+              <li key={`${a.type}-${i}`} data-testid="alert" data-type={a.type} className="alert-row flex items-start gap-3">
+                <span className={`pill sev-${a.severity} shrink-0`}>
+                  <span aria-hidden="true">{a.severity === 'critical' ? '⛔' : '⚠'}</span>{t(`severity.${a.severity}`)}
                 </span>
                 <span>{alertText(a)}</span>
               </li>
@@ -211,17 +230,18 @@ export default async function OverviewPage({ params, searchParams }: { params: P
         </section>
       )}
     </main>
+    </>
   );
 }
 
-function Kpi({ label, value, hint, source, sourceLabel, testId, ltr }: { label: string; value: string; hint: string; source: string; sourceLabel: string; testId: string; ltr?: boolean }) {
+function Kpi({ label, value, hint, source, sourceLabel, testId, ltr, hero }: { label: string; value: string; hint: string; source: string; sourceLabel: string; testId: string; ltr?: boolean; hero?: boolean }) {
   return (
-    <div className="card space-y-1" data-testid={testId}>
+    <div className={`card space-y-1 ${hero ? 'card-hero' : ''}`} data-testid={testId}>
       <p className="text-sm secondary">{label}</p>
       {/* une fraction (« 50 / 100 ») reste lisible gauche-droite en arabe ; sinon elle s'inverse */}
-      <p className="num text-3xl font-semibold" data-testid={`${testId}-value`}>{ltr ? <bdi dir="ltr">{value}</bdi> : value}</p>
+      <p className="num kpi-value" data-testid={`${testId}-value`}>{ltr ? <bdi dir="ltr">{value}</bdi> : value}</p>
       <p className="text-xs muted">{hint}</p>
-      <p className="src">{sourceLabel} : <code>{source}</code></p>
+      <details className="src"><summary>{sourceLabel}</summary><code>{source}</code></details>
     </div>
   );
 }
@@ -238,7 +258,7 @@ function Facts({ title, rows, source, sourceLabel, testId }: { title: string; ro
           </div>
         ))}
       </dl>
-      <p className="src">{sourceLabel} : <code>{source}</code></p>
+      <details className="src"><summary>{sourceLabel}</summary><code>{source}</code></details>
     </section>
   );
 }
