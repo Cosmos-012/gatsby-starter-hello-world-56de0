@@ -1,0 +1,99 @@
+# Déploiement PMU standard : Docker Compose, sans Kubernetes. Non exécuté dans l'environnement de build (pas de démon Docker) — validé en CI via `docker compose config`.
+name: ned-me
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: ned
+      POSTGRES_USER: ned_owner
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD requis}
+      API_DB_PASSWORD: ${API_DB_PASSWORD:?API_DB_PASSWORD requis}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../db/migrations:/migrations:ro
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ned_owner -d ned"]
+      interval: 10s
+      retries: 5
+    restart: unless-stopped
+  api:
+    build: ../api
+    environment:
+      DATABASE_URL: postgres://ned_api:${API_DB_PASSWORD}@db:5432/ned
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      DEV_JWT_SECRET: ${DEV_JWT_SECRET:-}          # développement/CI uniquement ; vide en production
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://storage:8333}
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-}   # ex. https://files.<domaine> (servi par Caddy, sans réécriture de chemin)
+      S3_BUCKET: ${S3_BUCKET:-ned-evidence}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      TRUST_PROXY: "1"
+      PORT: "3000"
+    depends_on:
+      db: { condition: service_healthy }
+      storage: { condition: service_started }   # l'API réessaie la création du bucket jusqu'à disponibilité
+    ports: ["127.0.0.1:3000:3000"]
+    restart: unless-stopped
+  web:
+    build: ../web
+    environment:
+      NED_API_URL: http://api:3000
+      NED_DEV_TOKEN: ${NED_DEV_TOKEN:-}            # développement/démo uniquement ; vide en production
+      # Connexion des utilisateurs (Keycloak). Issuer = URL publique du royaume, joignable aussi depuis ce conteneur.
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-ned-web}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      PUBLIC_URL: ${PUBLIC_URL:-}                  # ex. https://ned.example.org (sans / final)
+      SESSION_SECRET: ${SESSION_SECRET:-}          # 32 caractères minimum ; chiffre le cookie de session
+      NED_AR_NUMERALS: ${NED_AR_NUMERALS:-latn}    # latn : 0-9 ; arab : ٠-٩
+    depends_on:
+      api: { condition: service_started }
+    ports: ["127.0.0.1:3100:3100"]
+    restart: unless-stopped
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: start-dev --import-realm
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro   # royaume « ned » : client ned-web, mappeur tenant_id. Changer le secret et supprimer l'utilisateur demo.
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://db:5432/ned
+      KC_DB_SCHEMA: keycloak
+      KC_DB_USERNAME: ned_owner
+      KC_DB_PASSWORD: ${DB_PASSWORD}
+      KC_HTTP_RELATIVE_PATH: /auth
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: ${PUBLIC_URL:-http://localhost}/auth
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?requis}
+    depends_on:
+      db: { condition: service_healthy }
+    restart: unless-stopped
+  storage:
+    # SeaweedFS (Apache-2.0), compatible S3. L'image minio/minio n'est plus distribuée sur Docker Hub (constaté en CI le 2026-10-04).
+    # Tout stockage S3 convient : l'API n'utilise que l'API S3 standard et crée elle-même le bucket.
+    image: chrislusf/seaweedfs:4.48
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        printf '{"identities":[{"name":"ned","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","Write","List","Tagging"]}]}'
+        "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY" > /tmp/s3.json &&
+        exec weed server -dir=/data -ip=storage -ip.bind=0.0.0.0 -volume.max=20 -filer -s3 -s3.port=8333 -s3.config=/tmp/s3.json
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY requis}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY requis}
+    volumes:
+      - storagedata:/data
+    restart: unless-stopped
+  caddy:
+    image: caddy:2
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    restart: unless-stopped
+volumes:
+  pgdata:
+  storagedata:
