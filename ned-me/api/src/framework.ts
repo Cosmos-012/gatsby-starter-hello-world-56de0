@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type pg from 'pg';
 import { withTenant } from './db.ts';
+import { loadConfig, validateAttributes } from './project-config.ts';
 
 const Name = z.object({ fr: z.string().optional(), ar: z.string().optional(), en: z.string().optional() })
   .refine((n) => n.fr || n.ar || n.en, 'at least one language required');
@@ -69,17 +70,22 @@ export function registerFramework(app: FastifyInstance, pool: pg.Pool) {
       frequency: z.enum(['monthly', 'quarterly', 'semiannual', 'annual']).default('quarterly'),
       baseline: z.number().finite().optional(), baseline_period: z.string().optional(),
       data_source: z.string().optional(), collection_method: z.string().optional(), responsible_org_id: Uuid.optional(),
+      attributes: z.record(z.string(), z.unknown()).default({}),
     }).parse(req.body);
-    const [row] = await q(req, `INSERT INTO indicator (tenant_id,project_id,result_id,code,name,definition,unit,type,direction,frequency,baseline,baseline_period,data_source,collection_method,responsible_org_id)
-      VALUES (app.current_tenant(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id,code`,
+    // Champs personnalisés : validés contre la définition du projet (inconnu, type, liste, requis).
+    const cfg = await withTenant(pool, (req as any).principal, (c) => loadConfig(c, b.project_id));
+    const bad = validateAttributes(cfg.custom_fields, b.attributes);
+    if (bad.length) return reply.code(400).send({ error: 'validation', details: bad });
+    const [row] = await q(req, `INSERT INTO indicator (tenant_id,project_id,result_id,code,name,definition,unit,type,direction,frequency,baseline,baseline_period,data_source,collection_method,responsible_org_id,attributes)
+      VALUES (app.current_tenant(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id,code`,
       [b.project_id, b.result_id ?? null, b.code, b.name, b.definition ?? null, b.unit ?? null, b.type, b.direction, b.frequency,
-       b.baseline ?? null, b.baseline_period ?? null, b.data_source ?? null, b.collection_method ?? null, b.responsible_org_id ?? null]);
+       b.baseline ?? null, b.baseline_period ?? null, b.data_source ?? null, b.collection_method ?? null, b.responsible_org_id ?? null, b.attributes]);
     return reply.code(201).send(row);
   });
   // Recherche multilingue (arabe normalisé : tashkeel, alef, ta marbuta).
   app.get('/indicators', { preHandler: guard(READ) }, async (req) => {
     const f = z.object({ project_id: Uuid.optional(), search: z.string().optional() }).parse(req.query);
-    return q(req, `SELECT id,code,name,unit,direction,frequency,baseline,result_id FROM indicator
+    return q(req, `SELECT id,code,name,unit,direction,frequency,baseline,result_id,attributes FROM indicator
       WHERE ($1::uuid IS NULL OR project_id=$1) AND ($2::text IS NULL OR app.search_text(name) LIKE '%' || app.norm_text($2) || '%')
       ORDER BY code LIMIT 200`, [f.project_id ?? null, f.search ?? null]);
   });

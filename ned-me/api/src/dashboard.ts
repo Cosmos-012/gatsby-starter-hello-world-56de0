@@ -5,6 +5,7 @@ import { withTenant } from './db.ts';
 import { trackingRows } from './tracking.ts';
 import { assess } from './dqa-routes.ts';
 import { followUp } from './evaluations.ts';
+import { loadConfig, pendingModules, visibleWidgets } from './project-config.ts';
 import { mealSummary } from './meal.ts';
 import { riskSummary } from './risks.ts';
 
@@ -71,6 +72,7 @@ export async function buildOverview(c: pg.PoolClient, f: OverviewFilter) {
   const dqOpen = Object.fromEntries(dqIssues.map((r) => [r.severity, r.n]));
   const dqAvg = mean(dq.map((r) => r.score));
 
+  const cfg = await loadConfig(c, f.project_id);
   const evalStatus = Object.fromEntries((await c.query(
     `SELECT status, count(*)::int AS n FROM evaluation WHERE ($1::uuid IS NULL OR project_id = $1) GROUP BY status`, [f.project_id ?? null])).rows.map((r) => [r.status, r.n]));
   const fu = await followUp(c, f.project_id, asOf);
@@ -103,6 +105,7 @@ export async function buildOverview(c: pg.PoolClient, f: OverviewFilter) {
       satisfaction_avg: meal.satisfaction.avg, source: `/meal/summary?${qs({ as_of: asOf })}` },
     risks: { ...risk, source: `/risks?${qs({ as_of: asOf })}` },
     learning: { total: Object.values(lessonByStatus).reduce((a, b) => a + b, 0), by_status: lessonByStatus, source: `/lessons?${qs()}` },
-    alerts, not_available: NOT_AVAILABLE,
+    alerts, not_available: pendingModules(cfg).filter((m) => (NOT_AVAILABLE as readonly string[]).includes(m)),
+    config: { template: cfg.template, modules: cfg.modules, widgets: visibleWidgets(cfg), level_labels: cfg.terminology.level_labels, pending: pendingModules(cfg) },
   };
 }
