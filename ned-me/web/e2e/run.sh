@@ -24,16 +24,16 @@ if [ -n "${E2E_OIDC_ISSUER:-}" ]; then API_AUTH=(NED_ALLOW_MEMORY_STORAGE=1 OIDC
     node --experimental-strip-types src/server.ts > /tmp/ned-e2e-api.log 2>&1 ) & PIDS+=($!)
 for i in $(seq 1 30); do curl -fsS "localhost:$API_PORT/health" >/dev/null 2>&1 && break; [ "$i" = 30 ] && { cat /tmp/ned-e2e-api.log; exit 1; }; sleep 1; done
 
-TOKEN=$(cd "$ROOT/api" && node --input-type=module -e "import { SignJWT } from 'jose'; console.log(await new SignJWT({ tenant_id: 'aaaaaaaa-0000-0000-0000-000000000001', roles: ['viewer'] }).setProtectedHeader({ alg: 'HS256' }).setSubject('e2e').setExpirationTime('1h').sign(new TextEncoder().encode('$SECRET')))")
+TOKEN=$(cd "$ROOT/api" && node --input-type=module -e "import { SignJWT } from 'jose'; console.log(await new SignJWT({ tenant_id: 'aaaaaaaa-0000-0000-0000-000000000001', roles: ['me_manager'] }).setProtectedHeader({ alg: 'HS256' }).setSubject('e2e').setExpirationTime('1h').sign(new TextEncoder().encode('$SECRET')))")
 export NED_API_URL="http://localhost:$API_PORT" NED_DEV_TOKEN="$TOKEN" E2E_BASE_URL="http://localhost:$WEB_PORT"
 if [ -n "${E2E_OIDC_ISSUER:-}" ]; then
   unset NED_DEV_TOKEN; export OIDC_ISSUER="$E2E_OIDC_ISSUER" OIDC_CLIENT_ID=ned-web OIDC_CLIENT_SECRET="${E2E_OIDC_SECRET:?E2E_OIDC_SECRET requis}" PUBLIC_URL="http://localhost:$WEB_PORT" SESSION_SECRET=e2e-session-secret-e2e-session-secret
   SPEC=auth.spec.ts
-else SPEC=overview.spec.ts; fi
+else SPEC="overview.spec.ts settings.spec.ts"; fi
 # un serveur résiduel sur le port servirait une version périmée : on refuse de tester dans ce cas
 if curl -s -o /dev/null "localhost:$WEB_PORT/fr"; then echo "port $WEB_PORT déjà occupé : arrêtez le serveur résiduel" >&2; exit 1; fi
 NEXT_TELEMETRY_DISABLED=1 node node_modules/next/dist/bin/next build >/dev/null   # toujours reconstruire
 # node direct (pas npx) : le PID suivi est celui du serveur ; l'arrêt en fin de test le termine vraiment.
 ( NEXT_TELEMETRY_DISABLED=1 exec node node_modules/next/dist/bin/next start -p "$WEB_PORT" > /tmp/ned-e2e-web.log 2>&1 ) & PIDS+=($!)
 for i in $(seq 1 60); do curl -fsS -o /dev/null "localhost:$WEB_PORT/fr" 2>/dev/null && break; [ "$i" = 60 ] && { cat /tmp/ned-e2e-web.log; exit 1; }; sleep 1; done
-npx playwright test "$SPEC" "$@"
+npx playwright test $SPEC "$@"

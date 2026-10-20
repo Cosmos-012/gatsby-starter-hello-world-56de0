@@ -11,5 +11,15 @@ export interface Overview {
   learning: { total: number; by_status: Record<string, number>; source: string };
   alerts: { severity: 'critical' | 'warning'; type: string; params: Record<string, unknown> }[];
   not_available: string[];
+  config: OverviewConfig;
 }
 export interface Project { id: string; code: string; name: Record<string, string>; status: string }
+
+export type Label = Partial<Record<'fr' | 'ar' | 'en', string>>;
+export interface FieldDef { key: string; type: 'text' | 'number' | 'select' | 'date' | 'boolean'; label: Label; required: boolean; options?: { value: string; label: Label }[] }
+export interface ProjectConfig {
+  template: string; modules: Record<string, boolean>; terminology: { level_labels: Partial<Record<'impact' | 'outcome' | 'output', Label>> };
+  dashboard: { widgets: { id: string; visible: boolean }[] }; custom_fields: FieldDef[]; version: number;
+}
+export interface ConfigCatalog { modules: { key: string; core: boolean; built: boolean }[]; widgets: string[]; templates: { id: string; label: Label }[] }
+export interface OverviewConfig { template: string; modules: Record<string, boolean>; widgets: string[]; level_labels: Partial<Record<'impact' | 'outcome' | 'output', Label>>; pending: string[] }

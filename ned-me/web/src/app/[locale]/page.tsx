@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { apiGet, isDevToken } from '@/lib/api';
 import { oidcConfig, readSession } from '@/lib/session';
+import { Header } from './chrome';
 import { formatters, isLocale, LOCALES, messagesFor, translate, translatePlural } from '@/lib/i18n';
 import type { Overview, Project, Status } from '@/lib/types';
 
@@ -39,35 +40,7 @@ export default async function OverviewPage({ params, searchParams }: { params: P
   const [projects, overview] = await Promise.all([apiGet<Project[]>('/projects'), apiGet<Overview>(`/dashboard/overview?${q}`)]);
 
   const keep = new URLSearchParams({ ...(project ? { project } : {}), ...(asOf ? { as_of: asOf } : {}) }).toString();
-  const header = (
-    <header className="topbar">
-     <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
-      <div className="flex items-center gap-3">
-        <span className="brand-mark" aria-hidden="true">N</span>
-        <p className="text-sm font-semibold">{t('app.title')}</p>
-      </div>
-      <nav aria-label={t('lang.switch')} className="flex gap-3 text-sm">
-        {LOCALES.map((l) => (
-          <Link key={l} href={`/${l}${keep ? `?${keep}` : ''}`} hrefLang={l} lang={l} aria-current={l === locale ? 'page' : undefined}
-            className={l === locale ? 'font-semibold underline underline-offset-4' : 'secondary hover:underline'}>{t(`lang.${l}`)}</Link>
-        ))}
-      </nav>
-      {oidc && (
-        <div className="flex items-center gap-3 text-sm" data-testid="auth">
-          {session ? (
-            <form method="post" action="/sso/logout" className="flex items-center gap-3">
-              <input type="hidden" name="return" value={`/${locale}`} />
-              {session.name && <span className="secondary" data-testid="auth-user">{t('auth.user', { name: session.name })}</span>}
-              <button type="submit" className="underline underline-offset-4">{t('auth.logout')}</button>
-            </form>
-          ) : (
-            <a href={`/sso/login?return=${encodeURIComponent(`/${locale}`)}`} className="underline underline-offset-4" data-testid="auth-login">{t('auth.login')}</a>
-          )}
-        </div>
-      )}
-     </div>
-    </header>
-  );
+  const header = <Header locale={locale} keep={keep} section="overview" />;
 
   const title = <h1 className="text-2xl font-semibold sm:text-3xl">{t('app.question')}</h1>;
 
@@ -101,6 +74,92 @@ export default async function OverviewPage({ params, searchParams }: { params: P
     return n == null ? t(`alert.${a.type}`, params) : translatePlural(m, locale, `alert.${a.type}`, n, params);
   };
 
+  const levelLabel = (lv: 'impact' | 'outcome' | 'output') => o.config.level_labels[lv]?.[locale] || t(`levels.${lv}`);
+  const W: Record<string, React.ReactNode> = {
+    kpi_overall: <Kpi key="kpi_overall" hero testId="kpi-overall" label={t('kpi.overall')} value={ratioOrNone(p.overall)} hint={t('kpi.overall_hint')} source={p.source} sourceLabel={t('common.source')} />,
+    kpi_coverage: <Kpi key="kpi_coverage" testId="kpi-coverage" label={t('kpi.coverage')} value={ratioOrNone(p.coverage)} hint={t('kpi.coverage_hint', { with: f.num(p.with_data), total: f.num(p.indicators_total) })} source={p.source} sourceLabel={t('common.source')} />,
+    kpi_dq: <Kpi key="kpi_dq" testId="kpi-dq" label={t('kpi.dq')} value={o.data_quality.average_score == null ? t('kpi.no_data') : `${f.num(o.data_quality.average_score)} / ${f.num(100)}`} ltr
+      hint={t('kpi.dq_hint', { errors: f.num(o.data_quality.open_issues.error), warnings: f.num(o.data_quality.open_issues.warning) })} source={o.data_quality.source} sourceLabel={t('common.source')} />,
+    kpi_at_risk: <Kpi key="kpi_at_risk" testId="kpi-at-risk" label={t('kpi.at_risk')} value={f.num(p.forecast_at_risk)} hint={t('kpi.at_risk_hint')} source={p.source} sourceLabel={t('common.source')} />,
+    status: (
+      <section key="status" aria-labelledby="status" className="card space-y-3">
+        <h2 id="status" className="font-semibold">{t('status.title')}</h2>
+        {p.indicators_total > 0 && (
+          <div className="stack" role="img" aria-label={STATUS_ORDER.map((s) => `${t(`status.${s}`)} ${f.num(p.by_status[s] ?? 0)}`).join(', ')}>
+            {STATUS_ORDER.filter((s) => (p.by_status[s] ?? 0) > 0).map((s) => (
+              <span key={s} className={`seg-${s}`} style={{ flexGrow: p.by_status[s] }} title={`${t(`status.${s}`)} : ${f.num(p.by_status[s])}`} />
+            ))}
+          </div>
+        )}
+        <ul className="space-y-2">
+          {STATUS_ORDER.map((s) => (
+            <li key={s} data-testid={`status-${s}`} className="flex items-center gap-3">
+              <span className={`dot dot-${s}`} aria-hidden="true" />
+              <span aria-hidden="true" className="w-4 text-center text-sm font-bold">{STATUS_ICON[s]}</span>
+              <span className="flex-1">{t(`status.${s}`)}</span>
+              <span className="num font-semibold">{f.num(p.by_status[s] ?? 0)}</span>
+            </li>
+          ))}
+        </ul>
+        <details className="src"><summary>{t('common.source')}</summary><code>{p.source}</code></details>
+      </section>),
+    levels: (
+      <section key="levels" aria-labelledby="levels" className="card space-y-3 lg:col-span-2">
+        <h2 id="levels" className="font-semibold">{t('levels.title')}</h2>
+        <ul className="space-y-3">
+          {p.by_result_level.map((l) => (
+            <li key={l.level} data-testid={`level-${l.level}`} title={`${levelLabel(l.level)} : ${ratioOrNone(l.avg_achievement)} — ${t('levels.count', { withData: f.num(l.with_data), n: f.num(l.indicators) })}`}>
+              <div className="flex justify-between gap-2 text-sm">
+                <span>{levelLabel(l.level)}</span>
+                <span className="num font-semibold">{ratioOrNone(l.avg_achievement)}</span>
+              </div>
+              <div className="bar-track mt-1" aria-hidden="true">
+                {l.avg_achievement != null && <div className="bar-fill" style={{ width: `${Math.min(100, Math.max(0, l.avg_achievement * 100))}%` }} />}
+              </div>
+              <p className="mt-1 text-xs muted">{t('levels.count', { withData: f.num(l.with_data), n: f.num(l.indicators) })}</p>
+            </li>
+          ))}
+        </ul>
+        <details className="src"><summary>{t('common.source')}</summary><code>{p.source}</code></details>
+      </section>),
+    alerts: (
+      <section key="alerts" aria-labelledby="alerts" className="card space-y-3">
+        <h2 id="alerts" className="font-semibold">{t('alerts.title')}</h2>
+        {o.alerts.length === 0 ? <p className="muted">{t('alerts.none')}</p> : (
+          <ul className="space-y-2" data-testid="alerts">
+            {o.alerts.map((a, i) => (
+              <li key={`${a.type}-${i}`} data-testid="alert" data-type={a.type} className="alert-row flex items-start gap-3">
+                <span className={`pill sev-${a.severity} shrink-0`}>
+                  <span aria-hidden="true">{a.severity === 'critical' ? '⛔' : '⚠'}</span>{t(`severity.${a.severity}`)}
+                </span>
+                <span>{alertText(a)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>),
+    evaluations: <Facts key="evaluations" testId="block-evaluations" title={t('eval.title')} source={o.evaluations.source} sourceLabel={t('common.source')} rows={[
+      [t('eval.total'), f.num(o.evaluations.recommendations.total)],
+      [t('eval.closure_rate'), o.evaluations.recommendations.closure_rate == null ? t('common.no_data') : f.percent(o.evaluations.recommendations.closure_rate)],
+      [t('eval.unanswered'), f.num(o.evaluations.recommendations.unanswered)],
+      [t('eval.overdue_actions'), f.num(o.evaluations.recommendations.overdue_actions)],
+    ]} />,
+    accountability: <Facts key="accountability" testId="block-accountability" title={t('acc.title')} source={o.accountability.source} sourceLabel={t('common.source')} rows={[
+      [t('acc.open'), f.num(o.accountability.open_feedback)],
+      [t('acc.overdue_resolution'), f.num(o.accountability.overdue_resolution)],
+      [t('acc.overdue_ack'), f.num(o.accountability.overdue_acknowledgement)],
+      [t('acc.satisfaction'), o.accountability.satisfaction_avg == null ? t('common.no_data') : f.num(o.accountability.satisfaction_avg)],
+    ]} />,
+    risks: <Facts key="risks" testId="block-risks" title={t('risk.title')} source={o.risks.source} sourceLabel={t('common.source')} rows={[
+      [t('risk.open'), f.num(o.risks.open_total)],
+      [t('risk.critical'), f.num(o.risks.open_by_level.critical)],
+      [t('risk.unescalated'), f.num(o.risks.critical_unescalated)],
+      [t('risk.issues'), f.num(o.risks.open_issues_total)],
+      [t('risk.overdue_issues'), f.num(o.risks.overdue_issues)],
+    ]} />,
+    learning: <Facts key="learning" testId="block-learning" title={t('learn.title')} source={o.learning.source} sourceLabel={t('common.source')} rows={[[t('learn.total'), f.num(o.learning.total)]]} />,
+  };
+
   return (
     <>
     <a href="#main" className="skip">{t('a11y.skip')}</a>
@@ -127,100 +186,7 @@ export default async function OverviewPage({ params, searchParams }: { params: P
         <p className="text-sm muted ms-auto">{t('common.as_of', { date: f.date(o.as_of) })}</p>
       </form>
 
-      {/* Chiffres clés */}
-      <section aria-labelledby="kpis" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <h2 id="kpis" className="sr-only">{t('kpi.overall')}</h2>
-        <Kpi hero testId="kpi-overall" label={t('kpi.overall')} value={ratioOrNone(p.overall)} hint={t('kpi.overall_hint')} source={p.source} sourceLabel={t('common.source')} />
-        <Kpi testId="kpi-coverage" label={t('kpi.coverage')} value={ratioOrNone(p.coverage)} hint={t('kpi.coverage_hint', { with: f.num(p.with_data), total: f.num(p.indicators_total) })} source={p.source} sourceLabel={t('common.source')} />
-        <Kpi testId="kpi-dq" label={t('kpi.dq')} value={o.data_quality.average_score == null ? t('kpi.no_data') : `${f.num(o.data_quality.average_score)} / ${f.num(100)}`} ltr
-          hint={t('kpi.dq_hint', { errors: f.num(o.data_quality.open_issues.error), warnings: f.num(o.data_quality.open_issues.warning) })} source={o.data_quality.source} sourceLabel={t('common.source')} />
-        <Kpi testId="kpi-at-risk" label={t('kpi.at_risk')} value={f.num(p.forecast_at_risk)} hint={t('kpi.at_risk_hint')} source={p.source} sourceLabel={t('common.source')} />
-      </section>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Statuts : icône + libellé + couleur réservée, jamais la couleur seule */}
-        <section aria-labelledby="status" className="card space-y-3">
-          <h2 id="status" className="font-semibold">{t('status.title')}</h2>
-          {p.indicators_total > 0 && (
-            <div className="stack" role="img" aria-label={STATUS_ORDER.map((s) => `${t(`status.${s}`)} ${f.num(p.by_status[s] ?? 0)}`).join(', ')}>
-              {STATUS_ORDER.filter((s) => (p.by_status[s] ?? 0) > 0).map((s) => (
-                <span key={s} className={`seg-${s}`} style={{ flexGrow: p.by_status[s] }} title={`${t(`status.${s}`)} : ${f.num(p.by_status[s])}`} />
-              ))}
-            </div>
-          )}
-          <ul className="space-y-2">
-            {STATUS_ORDER.map((s) => (
-              <li key={s} data-testid={`status-${s}`} className="flex items-center gap-3">
-                <span className={`dot dot-${s}`} aria-hidden="true" />
-                <span aria-hidden="true" className="w-4 text-center text-sm font-bold">{STATUS_ICON[s]}</span>
-                <span className="flex-1">{t(`status.${s}`)}</span>
-                <span className="num font-semibold">{f.num(p.by_status[s] ?? 0)}</span>
-              </li>
-            ))}
-          </ul>
-          <details className="src"><summary>{t('common.source')}</summary><code>{p.source}</code></details>
-        </section>
-
-        {/* Niveaux de résultats : une seule série, valeur écrite à côté de chaque barre */}
-        <section aria-labelledby="levels" className="card space-y-3 lg:col-span-2">
-          <h2 id="levels" className="font-semibold">{t('levels.title')}</h2>
-          <ul className="space-y-3">
-            {p.by_result_level.map((l) => (
-              <li key={l.level} data-testid={`level-${l.level}`} title={`${t(`levels.${l.level}`)} : ${ratioOrNone(l.avg_achievement)} — ${t('levels.count', { withData: f.num(l.with_data), n: f.num(l.indicators) })}`}>
-                <div className="flex justify-between gap-2 text-sm">
-                  <span>{t(`levels.${l.level}`)}</span>
-                  <span className="num font-semibold">{ratioOrNone(l.avg_achievement)}</span>
-                </div>
-                <div className="bar-track mt-1" aria-hidden="true">
-                  {l.avg_achievement != null && <div className="bar-fill" style={{ width: `${Math.min(100, Math.max(0, l.avg_achievement * 100))}%` }} />}
-                </div>
-                <p className="mt-1 text-xs muted">{t('levels.count', { withData: f.num(l.with_data), n: f.num(l.indicators) })}</p>
-              </li>
-            ))}
-          </ul>
-          <details className="src"><summary>{t('common.source')}</summary><code>{p.source}</code></details>
-        </section>
-      </div>
-
-      {/* Alertes : triées critique d'abord par l'API */}
-      <section aria-labelledby="alerts" className="card space-y-3">
-        <h2 id="alerts" className="font-semibold">{t('alerts.title')}</h2>
-        {o.alerts.length === 0 ? <p className="muted">{t('alerts.none')}</p> : (
-          <ul className="space-y-2" data-testid="alerts">
-            {o.alerts.map((a, i) => (
-              <li key={`${a.type}-${i}`} data-testid="alert" data-type={a.type} className="alert-row flex items-start gap-3">
-                <span className={`pill sev-${a.severity} shrink-0`}>
-                  <span aria-hidden="true">{a.severity === 'critical' ? '⛔' : '⚠'}</span>{t(`severity.${a.severity}`)}
-                </span>
-                <span>{alertText(a)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Facts testId="block-evaluations" title={t('eval.title')} source={o.evaluations.source} sourceLabel={t('common.source')} rows={[
-          [t('eval.total'), f.num(o.evaluations.recommendations.total)],
-          [t('eval.closure_rate'), o.evaluations.recommendations.closure_rate == null ? t('common.no_data') : f.percent(o.evaluations.recommendations.closure_rate)],
-          [t('eval.unanswered'), f.num(o.evaluations.recommendations.unanswered)],
-          [t('eval.overdue_actions'), f.num(o.evaluations.recommendations.overdue_actions)],
-        ]} />
-        <Facts testId="block-accountability" title={t('acc.title')} source={o.accountability.source} sourceLabel={t('common.source')} rows={[
-          [t('acc.open'), f.num(o.accountability.open_feedback)],
-          [t('acc.overdue_resolution'), f.num(o.accountability.overdue_resolution)],
-          [t('acc.overdue_ack'), f.num(o.accountability.overdue_acknowledgement)],
-          [t('acc.satisfaction'), o.accountability.satisfaction_avg == null ? t('common.no_data') : f.num(o.accountability.satisfaction_avg)],
-        ]} />
-        <Facts testId="block-risks" title={t('risk.title')} source={o.risks.source} sourceLabel={t('common.source')} rows={[
-          [t('risk.open'), f.num(o.risks.open_total)],
-          [t('risk.critical'), f.num(o.risks.open_by_level.critical)],
-          [t('risk.unescalated'), f.num(o.risks.critical_unescalated)],
-          [t('risk.issues'), f.num(o.risks.open_issues_total)],
-          [t('risk.overdue_issues'), f.num(o.risks.overdue_issues)],
-        ]} />
-        <Facts testId="block-learning" title={t('learn.title')} source={o.learning.source} sourceLabel={t('common.source')} rows={[[t('learn.total'), f.num(o.learning.total)]]} />
-      </div>
+      {renderWidgets(o.config.widgets, W)}
 
       {o.not_available.length > 0 && (
         <section aria-labelledby="na" className="card space-y-1" data-testid="not-available">
@@ -261,4 +227,17 @@ function Facts({ title, rows, source, sourceLabel, testId }: { title: string; ro
       <details className="src"><summary>{sourceLabel}</summary><code>{source}</code></details>
     </section>
   );
+}
+
+/** Regroupe les éléments consécutifs de même famille dans la grille qui leur convient ; l'ordre vient de la configuration du projet. */
+const FAMILY: Record<string, 'kpi' | 'mid' | 'alerts' | 'facts'> = { kpi_overall: 'kpi', kpi_coverage: 'kpi', kpi_dq: 'kpi', kpi_at_risk: 'kpi', status: 'mid', levels: 'mid', alerts: 'alerts', evaluations: 'facts', accountability: 'facts', risks: 'facts', learning: 'facts' };
+const GRID = { kpi: 'grid gap-4 sm:grid-cols-2 lg:grid-cols-4', mid: 'grid gap-4 lg:grid-cols-3', alerts: 'space-y-4', facts: 'grid gap-4 md:grid-cols-2 lg:grid-cols-4' } as const;
+function renderWidgets(order: string[], W: Record<string, React.ReactNode>) {
+  const groups: { fam: keyof typeof GRID; ids: string[] }[] = [];
+  for (const id of order) {
+    const fam = FAMILY[id]; if (!fam || !(id in W)) continue;
+    const last = groups[groups.length - 1];
+    if (last && last.fam === fam) last.ids.push(id); else groups.push({ fam, ids: [id] });
+  }
+  return groups.map((g, i) => <div key={`${g.fam}-${i}`} className={GRID[g.fam]}>{g.ids.map((id) => W[id])}</div>);
 }

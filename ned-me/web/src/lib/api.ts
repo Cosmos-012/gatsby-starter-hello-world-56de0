@@ -24,3 +24,16 @@ export async function apiGet<T>(path: string): Promise<ApiResult<T>> {
 }
 
 export const isDevToken = () => !!process.env.NED_DEV_TOKEN;
+
+/** Écriture côté serveur (actions du formulaire) : même jeton que la lecture, jamais envoyé au navigateur. */
+export async function apiSend<T>(method: 'PUT' | 'POST', path: string, body: unknown): Promise<{ ok: boolean; status: number; data: T | null }> {
+  const base = process.env.NED_API_URL ?? 'http://localhost:3000';
+  const token = (await readSession())?.at ?? process.env.NED_DEV_TOKEN;
+  if (!token) return { ok: false, status: 401, data: null };
+  try {
+    const r = await fetch(`${base}${path}`, { method, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body), cache: 'no-store' });
+    return { ok: r.ok, status: r.status, data: (await r.json().catch(() => null)) as T | null };
+  } catch {
+    return { ok: false, status: 503, data: null };
+  }
+}

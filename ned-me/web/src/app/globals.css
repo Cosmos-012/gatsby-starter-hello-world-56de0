@@ -62,3 +62,6 @@ details.src code { display: block; overflow-wrap: anywhere; }
 .link-btn { border: 1px solid var(--border); border-radius: 8px; padding: .3rem .7rem; font-size: .85rem; }
 .link-btn:hover { background: var(--bar-track); }
 @media (prefers-reduced-motion: no-preference) { .bar-fill, .stack > span { transition: width .4s ease; } }
+.nav-link { padding: .25rem .7rem; border-radius: 999px; color: var(--text-secondary); }
+.nav-link:hover { background: var(--bar-track); }
+.nav-active { background: var(--bar); color: #fff !important; font-weight: 600; }
