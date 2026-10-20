@@ -128,3 +128,16 @@ test('tableau de bord : expose widgets visibles, libellés de niveaux et modules
   const all = (await call('GET', '/dashboard/overview', mgr)).body;
   assert.equal(all.config.template, 'generic');
 });
+
+test('fiche indicateur : historique de toutes les valeurs, actions permises selon le rôle, isolation entre clients', async () => {
+  const mgr = await tok('mgr', T1, ['me_manager']), entry = await tok('de', T1, ['data_entry']), viewer = await tok('v', T1, ['viewer']);
+  const ind = (await call('GET', `/indicators?project_id=${P1}`, mgr)).body[0];
+  const v = (await call('POST', '/indicator-values', entry, { indicator_id: ind.id, period: '2026-Q1', period_end: '2026-03-31', kind: 'actual', value: 42 })).body;
+  const d = (await call('GET', `/indicators/${ind.id}`, entry)).body;
+  assert.equal(d.code, 'I1'); assert.equal(d.values.length, 1); assert.equal(d.values[0].workflow_state, 'draft');
+  assert.deepEqual(d.values[0].next, ['submitted']);                                                   // la saisie peut soumettre, pas valider
+  assert.deepEqual((await call('GET', `/indicators/${ind.id}`, viewer)).body.values[0].next, []);      // lecteur : aucune action
+  assert.equal(d.values[0].id, v.id);
+  assert.equal((await call('GET', `/indicators/${ind.id}`, await tok('x', T2, ['viewer']))).status, 404);
+  assert.equal((await call('GET', '/indicators/00000000-0000-0000-0000-000000000000', mgr)).status, 404);
+});

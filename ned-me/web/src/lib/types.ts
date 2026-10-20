@@ -23,3 +23,16 @@ export interface ProjectConfig {
 }
 export interface ConfigCatalog { modules: { key: string; core: boolean; built: boolean }[]; widgets: string[]; templates: { id: string; label: Label }[] }
 export interface OverviewConfig { template: string; modules: Record<string, boolean>; widgets: string[]; level_labels: Partial<Record<'impact' | 'outcome' | 'output', Label>>; pending: string[] }
+
+export interface TrackingRow {
+  indicator_id: string; result_id: string | null; code: string; name: Label; unit: string | null; direction: 'increase' | 'decrease'; baseline: number | null;
+  period: string | null; actual: number | null; target: number | null; gap: number | null; achievement: number | null; status: Status;
+  trend: 'improving' | 'declining' | 'flat' | 'insufficient'; forecast: number | null; at_risk: boolean | null;
+}
+export interface IndicatorListItem { id: string; code: string; attributes: Record<string, unknown> }
+export interface IndicatorValue { id: string; period: string; period_end: string; kind: 'target' | 'actual'; value: number; dimensions: Record<string, string>; workflow_state: string; comment: string | null; next: string[] }
+export interface IndicatorDetail {
+  id: string; project_id: string; code: string; name: Label; definition: Label | null; unit: string | null; type: string; direction: 'increase' | 'decrease';
+  frequency: string; baseline: number | null; baseline_period: string | null; data_source: string | null; collection_method: string | null; verification_status: string;
+  attributes: Record<string, unknown>; values: IndicatorValue[];
+}

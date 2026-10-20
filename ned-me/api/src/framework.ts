@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type pg from 'pg';
 import { withTenant } from './db.ts';
 import { loadConfig, validateAttributes } from './project-config.ts';
+import { nextStates, type State } from './workflow.ts';
 
 const Name = z.object({ fr: z.string().optional(), ar: z.string().optional(), en: z.string().optional() })
   .refine((n) => n.fr || n.ar || n.en, 'at least one language required');
@@ -81,6 +82,19 @@ export function registerFramework(app: FastifyInstance, pool: pg.Pool) {
       [b.project_id, b.result_id ?? null, b.code, b.name, b.definition ?? null, b.unit ?? null, b.type, b.direction, b.frequency,
        b.baseline ?? null, b.baseline_period ?? null, b.data_source ?? null, b.collection_method ?? null, b.responsible_org_id ?? null, b.attributes]);
     return reply.code(201).send(row);
+  });
+  // Fiche d'un indicateur : définition, champs personnalisés, historique de toutes les valeurs (tous états) et actions permises à l'appelant.
+  app.get('/indicators/:id', { preHandler: guard(READ) }, async (req, reply) => {
+    const { id } = z.object({ id: Uuid }).parse(req.params);
+    return withTenant(pool, (req as any).principal, async (c) => {
+      const ind = (await c.query(`SELECT id, project_id, result_id, code, name, definition, unit, type, direction, frequency, baseline::float8 AS baseline, baseline_period,
+          data_source, collection_method, verification_status, responsible_org_id, attributes FROM indicator WHERE id = $1`, [id])).rows[0];
+      if (!ind) return reply.code(404).send({ error: 'not_found' });
+      const values = (await c.query(`SELECT id, period, period_end::text AS period_end, kind, value::float8 AS value, dimensions, workflow_state, comment
+          FROM indicator_value WHERE indicator_id = $1 ORDER BY period_end DESC, kind LIMIT 300`, [id])).rows;
+      const roles = (req as any).principal.roles as string[];
+      return { ...ind, values: values.map((v) => ({ ...v, next: nextStates(v.workflow_state as State, roles) })) };
+    });
   });
   // Recherche multilingue (arabe normalisé : tashkeel, alef, ta marbuta).
   app.get('/indicators', { preHandler: guard(READ) }, async (req) => {

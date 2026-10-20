@@ -21,3 +21,7 @@ export function canTransition(from: State, to: State, roles: readonly string[]):
 export function transitionExists(from: State, to: State): boolean {
   return `${from}>${to}` in RULES;
 }
+/** Transitions que ces rôles peuvent effectuer depuis un état (pour n'afficher que des actions réellement permises). */
+export function nextStates(from: State, roles: readonly string[]): State[] {
+  return Object.keys(RULES).filter((k) => k.startsWith(`${from}>`)).map((k) => k.split('>')[1] as State).filter((to) => canTransition(from, to, roles));
+}
