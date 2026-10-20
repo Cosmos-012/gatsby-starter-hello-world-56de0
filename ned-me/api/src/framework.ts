@@ -4,6 +4,7 @@ import type pg from 'pg';
 import { withTenant } from './db.ts';
 import { loadConfig, validateAttributes } from './project-config.ts';
 import { nextStates, type State } from './workflow.ts';
+import { activeDefinition } from './indicator-library.ts';
 
 const Name = z.object({ fr: z.string().optional(), ar: z.string().optional(), en: z.string().optional() })
   .refine((n) => n.fr || n.ar || n.en, 'at least one language required');
@@ -65,22 +66,33 @@ export function registerFramework(app: FastifyInstance, pool: pg.Pool) {
 
   app.post('/indicators', { preHandler: guard(WRITE) }, async (req, reply) => {
     const b = z.object({
-      project_id: Uuid, result_id: Uuid.optional(), code: z.string().min(1), name: Name, definition: Name.optional(),
-      unit: z.string().optional(), type: z.enum(['number', 'percentage', 'ratio', 'index', 'boolean']).default('number'),
-      direction: z.enum(['increase', 'decrease']).default('increase'),
-      frequency: z.enum(['monthly', 'quarterly', 'semiannual', 'annual']).default('quarterly'),
+      project_id: Uuid, definition_id: Uuid.optional(), result_id: Uuid.optional(), code: z.string().min(1), name: Name.optional(), definition: Name.optional(),
+      unit: z.string().optional(), type: z.enum(['number', 'percentage', 'ratio', 'index', 'boolean']).optional(),
+      direction: z.enum(['increase', 'decrease']).optional(),
+      frequency: z.enum(['monthly', 'quarterly', 'semiannual', 'annual']).optional(),
       baseline: z.number().finite().optional(), baseline_period: z.string().optional(),
       data_source: z.string().optional(), collection_method: z.string().optional(), responsible_org_id: Uuid.optional(),
       attributes: z.record(z.string(), z.unknown()).default({}),
     }).parse(req.body);
+    // Fiche de la bibliothèque : ses champs servent de valeurs par défaut (copie instantanée) ; ce qui est fourni explicitement l'emporte.
+    let def: any = null;
+    if (b.definition_id) {
+      def = await withTenant(pool, (req as any).principal, (c) => activeDefinition(c, b.definition_id!));
+      if (!def) return reply.code(409).send({ error: 'definition_unavailable' });
+    }
+    const name = b.name ?? def?.title;
+    if (!name) return reply.code(400).send({ error: 'validation', details: ['name ou definition_id requis'] });
+    const x = { definition: b.definition ?? def?.definition ?? null, unit: b.unit ?? def?.unit ?? null, type: b.type ?? def?.type ?? 'number', direction: b.direction ?? def?.direction ?? 'increase',
+      frequency: b.frequency ?? def?.frequency ?? 'quarterly', data_source: b.data_source ?? def?.data_source ?? null, collection_method: b.collection_method ?? def?.collection_method ?? null,
+      numerator_def: def?.numerator_def ?? null, denominator_def: def?.denominator_def ?? null };
     // Champs personnalisés : validés contre la définition du projet (inconnu, type, liste, requis).
     const cfg = await withTenant(pool, (req as any).principal, (c) => loadConfig(c, b.project_id));
     const bad = validateAttributes(cfg.custom_fields, b.attributes);
     if (bad.length) return reply.code(400).send({ error: 'validation', details: bad });
-    const [row] = await q(req, `INSERT INTO indicator (tenant_id,project_id,result_id,code,name,definition,unit,type,direction,frequency,baseline,baseline_period,data_source,collection_method,responsible_org_id,attributes)
-      VALUES (app.current_tenant(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id,code`,
-      [b.project_id, b.result_id ?? null, b.code, b.name, b.definition ?? null, b.unit ?? null, b.type, b.direction, b.frequency,
-       b.baseline ?? null, b.baseline_period ?? null, b.data_source ?? null, b.collection_method ?? null, b.responsible_org_id ?? null, b.attributes]);
+    const [row] = await q(req, `INSERT INTO indicator (tenant_id,project_id,result_id,code,name,definition,unit,type,direction,frequency,baseline,baseline_period,data_source,collection_method,responsible_org_id,attributes,definition_id,numerator_def,denominator_def)
+      VALUES (app.current_tenant(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING id,code`,
+      [b.project_id, b.result_id ?? null, b.code, name, x.definition, x.unit, x.type, x.direction, x.frequency,
+       b.baseline ?? null, b.baseline_period ?? null, x.data_source, x.collection_method, b.responsible_org_id ?? null, b.attributes, b.definition_id ?? null, x.numerator_def, x.denominator_def]);
     return reply.code(201).send(row);
   });
   // Fiche d'un indicateur : définition, champs personnalisés, historique de toutes les valeurs (tous états) et actions permises à l'appelant.

@@ -5,6 +5,7 @@
 | Domaine | État | Remarque |
 |---|---|---|
 | Cadre de résultats, indicateurs, valeurs, workflow à 7 états, séparation des tâches | Fait | imposé par la base |
+| Bibliothèque d'indicateurs de référence (fiches PIRS, ODD, IATI) | Fait | créer un indicateur depuis une fiche ; copie instantanée |
 | Qualité des données (règles, scores), preuves (stockage S3), évaluations et recommandations, redevabilité (plaintes, SLA), apprentissage, risques et problèmes | Fait | API + tableau de bord |
 | Rapports traçables (JSON, Excel, HTML ; instantanés immuables) | Fait | PDF/Word/PPT : prévu |
 | Multi-clients (RLS), SSO Keycloak (code + PKCE), audit | Fait | MFA à activer dans Keycloak |

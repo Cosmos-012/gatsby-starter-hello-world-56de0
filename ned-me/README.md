@@ -1,5 +1,5 @@
 # NED M&E Control Tower
-Plateforme S&E/MEAL open source. Voir `docs/ARCHITECTURE.md` et `docs/OPEN_SOURCE_COMPONENTS.md`. Connexion : `docs/AUTH.md`. BI : `docs/BI.md`. Adaptation par projet : `docs/CUSTOMIZATION.md`. Feuille de route : `docs/ROADMAP.md`.
+Plateforme S&E/MEAL open source. Voir `docs/ARCHITECTURE.md` et `docs/OPEN_SOURCE_COMPONENTS.md`. Connexion : `docs/AUTH.md`. BI : `docs/BI.md`. Adaptation par projet : `docs/CUSTOMIZATION.md`. Feuille de route : `docs/ROADMAP.md`. Correspondance avec Monitorio : `docs/PARITY_MONITORIO.md`.
 
 | Dossier | Contenu | Tests |
 |---|---|---|
