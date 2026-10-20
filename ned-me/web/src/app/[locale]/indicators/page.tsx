@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { apiGet } from '@/lib/api';
 import { formatters, isLocale, messagesFor, translate } from '@/lib/i18n';
 import type { IndicatorListItem, Project, ProjectConfig, Status, TrackingRow } from '@/lib/types';
-import { Header } from '../chrome';
+import { AppShell } from '@/components/app-shell';
 
 export const dynamic = 'force-dynamic';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -42,10 +42,8 @@ export default async function IndicatorsPage({ params, searchParams }: { params:
   };
 
   return (
-    <>
-      <a href="#main" className="skip">{t('a11y.skip')}</a>
-      <Header locale={locale} keep={keep} section="indicators" />
-      <main id="main" className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
+    <AppShell locale={locale} keep={keep} section="indicators">
+      <div className="mx-auto w-full max-w-6xl space-y-6">
         <h1 className="text-2xl font-semibold sm:text-3xl">{t('ind.title')}</h1>
         <form method="get" className="card flex flex-wrap items-end gap-4">
           <label className="flex flex-col gap-1 text-sm"><span className="secondary">{t('filter.project')}</span>
@@ -96,7 +94,7 @@ export default async function IndicatorsPage({ params, searchParams }: { params:
           </div>
         )}
         <p className="text-xs muted">{t('ind.note')}</p>
-      </main>
-    </>
+      </div>
+    </AppShell>
   );
 }

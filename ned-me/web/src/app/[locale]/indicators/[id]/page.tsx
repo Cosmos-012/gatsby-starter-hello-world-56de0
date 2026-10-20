@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { apiGet } from '@/lib/api';
 import { formatters, isLocale, messagesFor, translate } from '@/lib/i18n';
 import type { IndicatorDetail, ProjectConfig } from '@/lib/types';
-import { Header } from '../../chrome';
+import { AppShell } from '@/components/app-shell';
 import { addValue, moveValue } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -21,10 +21,9 @@ export default async function IndicatorPage({ params, searchParams }: { params: 
   const f = formatters(locale);
   const msg = typeof sp.msg === 'string' && MSGS.includes(sp.msg) ? sp.msg : undefined;
   const res = await apiGet<IndicatorDetail>(`/indicators/${id}`);
-  const header = <Header locale={locale} keep="" section="indicators" />;
   if (!res.ok) {
     if (res.reason === 'invalid') notFound();
-    return <><a href="#main" className="skip">{t('a11y.skip')}</a>{header}<main id="main" className="mx-auto max-w-4xl p-4 sm:p-6"><p role="alert" className="card sev-critical">{t(`error.${res.reason}`)}</p></main></>;
+    return <AppShell locale={locale} keep="" section="indicators"><p role="alert" className="card sev-critical">{t(`error.${res.reason}`)}</p></AppShell>;
   }
   const d = res.data;
   const cfg = await apiGet<ProjectConfig>(`/projects/${d.project_id}/config`);
@@ -39,10 +38,8 @@ export default async function IndicatorPage({ params, searchParams }: { params: 
   const dims = (v: Record<string, string>) => Object.entries(v).map(([k, x]) => `${k}: ${x}`).join(', ');
 
   return (
-    <>
-      <a href="#main" className="skip">{t('a11y.skip')}</a>
-      {header}
-      <main id="main" className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
+    <AppShell locale={locale} keep="" section="indicators">
+      <div className="mx-auto w-full max-w-4xl space-y-6">
         <p><Link href={`/${locale}/indicators?project=${d.project_id}`} className="text-sm underline underline-offset-4">← {t('ind.back')}</Link></p>
         <h1 className="text-2xl font-semibold sm:text-3xl"><span className="muted">{d.code}</span> {pick(d.name)}</h1>
         {d.definition && <p className="secondary">{pick(d.definition)}</p>}
@@ -104,7 +101,7 @@ export default async function IndicatorPage({ params, searchParams }: { params: 
           <label className="flex flex-col gap-1 text-sm"><span className="secondary">{t('ind.val.comment')}</span><input name="comment" maxLength={1000} className={input} style={bd} /></label>
           <button type="submit" className="rounded-md px-4 py-2 text-sm font-medium text-white" style={{ background: 'var(--bar)' }}>{t('ind.save_value')}</button>
         </form>
-      </main>
-    </>
+      </div>
+    </AppShell>
   );
 }

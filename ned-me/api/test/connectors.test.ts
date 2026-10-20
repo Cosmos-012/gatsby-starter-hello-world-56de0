@@ -24,7 +24,7 @@ const row = (line: number, cells: Record<string, string>): RawRow => ({ line, ce
 
 // Source externe simulée : ce que serait, par exemple, une lecture de formulaires Kobo déjà convertie au format d'import.
 const fake: Connector<{ rows: Record<string, string>[]; fail?: boolean }> = {
-  id: 'fake', label: { fr: 'Source simulée', en: 'Simulated source' },
+  id: 'fake', label: { fr: 'Source simulée', en: 'Simulated source' }, form: [],
   config: z.object({ rows: z.array(z.record(z.string(), z.string())), fail: z.boolean().optional() }).strict(),
   async pull(cfg) { if (cfg.fail) throw new Error('source injoignable'); return cfg.rows.map((cells, i) => row(i + 1, cells)); },
 };
@@ -50,11 +50,11 @@ after(async () => { await app.close(); await pool.end(); });
 test('enregistrement : identifiant valide, pas de doublon, liste publique sans configuration', () => {
   assert.throws(() => registerConnector({ ...fake, id: 'Mauvais Id' }), /invalide/);
   assert.throws(() => registerConnector(fake), /déjà enregistré/);
-  assert.deepEqual(listConnectors(), [{ id: 'fake', label: { fr: 'Source simulée', en: 'Simulated source' } }]);
+  assert.deepEqual(listConnectors().filter((c) => c.id === 'fake'), [{ id: 'fake', label: { fr: 'Source simulée', en: 'Simulated source' }, description: undefined, form: [] }]);
 });
 
 test('un connecteur passe par le même contrôle que l\'import : brouillons seulement, tout ou rien, jamais d\'écrasement', async () => {
-  assert.deepEqual(await runConnector(pool, who1, 'fake', { rows: [good] }, P1), { status: 'ok', inserted: 1 });
+  assert.deepEqual(await runConnector(pool, who1, 'fake', { rows: [good] }, P1), { status: 'ok', inserted: 1, skipped: 0 });
   const m = await tok('m', T1, ['me_manager']);
   const ind = (await call('GET', `/indicators?project_id=${P1}`, m)).body[0];
   const det = (await call('GET', `/indicators/${ind.id}`, m)).body;

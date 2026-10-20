@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { apiGet } from '@/lib/api';
 import { isLocale, messagesFor, translate } from '@/lib/i18n';
 import type { Project } from '@/lib/types';
-import { Header } from '../chrome';
+import { AppShell } from '@/components/app-shell';
 import { ImportForm } from './form';
 
 export const dynamic = 'force-dynamic';
@@ -21,10 +21,8 @@ export default async function ImportPage({ params, searchParams }: { params: Pro
   const projects = await apiGet<Project[]>('/projects');
   const msg = Object.fromEntries(['format', 'forbidden', 'errors', 'too_big', 'nofile', 'api'].map((k) => [k, translate(m, `imp.msg.${k}`, { detail: '{detail}' })]));
   return (
-    <>
-      <a href="#main" className="skip">{t('a11y.skip')}</a>
-      <Header locale={locale} keep={project ? `project=${project}` : ''} section="import" />
-      <main id="main" className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
+    <AppShell locale={locale} keep={project ? `project=${project}` : ''} section="import">
+      <div className="mx-auto w-full max-w-4xl space-y-6">
         <h1 className="text-2xl font-semibold sm:text-3xl">{t('imp.title')}</h1>
         <p className="secondary text-sm">{t('imp.intro')}</p>
         <p><a className="link-btn inline-block" href={`data:text/csv;charset=utf-8,${encodeURIComponent(TEMPLATE)}`} download="modele-import.csv">{t('imp.template')}</a></p>
@@ -42,7 +40,7 @@ export default async function ImportPage({ params, searchParams }: { params: Pro
             line: t('imp.line'), status: t('imp.status'), ok: t('imp.ok'), error: t('imp.error'), done: t('imp.done'), msg, template: t('imp.template'), errorsMsg: t('imp.msg.errors'),
           }} />
         )}
-      </main>
-    </>
+      </div>
+    </AppShell>
   );
 }

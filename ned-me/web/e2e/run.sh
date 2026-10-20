@@ -29,7 +29,7 @@ export NED_API_URL="http://localhost:$API_PORT" NED_DEV_TOKEN="$TOKEN" E2E_BASE_
 if [ -n "${E2E_OIDC_ISSUER:-}" ]; then
   unset NED_DEV_TOKEN; export OIDC_ISSUER="$E2E_OIDC_ISSUER" OIDC_CLIENT_ID=ned-web OIDC_CLIENT_SECRET="${E2E_OIDC_SECRET:?E2E_OIDC_SECRET requis}" PUBLIC_URL="http://localhost:$WEB_PORT" SESSION_SECRET=e2e-session-secret-e2e-session-secret
   SPEC=auth.spec.ts
-else SPEC="overview.spec.ts indicators.spec.ts import.spec.ts settings.spec.ts"; fi
+else SPEC="overview.spec.ts indicators.spec.ts import.spec.ts integrations.spec.ts settings.spec.ts"; fi
 # un serveur résiduel sur le port servirait une version périmée : on refuse de tester dans ce cas
 if curl -s -o /dev/null "localhost:$WEB_PORT/fr"; then echo "port $WEB_PORT déjà occupé : arrêtez le serveur résiduel" >&2; exit 1; fi
 NEXT_TELEMETRY_DISABLED=1 node node_modules/next/dist/bin/next build >/dev/null   # toujours reconstruire

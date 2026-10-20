@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { apiGet } from '@/lib/api';
 import { isLocale, messagesFor, translate } from '@/lib/i18n';
 import type { ConfigCatalog, Label, Project, ProjectConfig } from '@/lib/types';
-import { Header } from '../chrome';
+import { AppShell } from '@/components/app-shell';
 import { addField, applyTemplate, removeField, saveGeneral } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -30,10 +30,8 @@ export default async function SettingsPage({ params, searchParams }: { params: P
   const keep = project ? `project=${project}` : '';
 
   return (
-    <>
-      <a href="#main" className="skip">{t('a11y.skip')}</a>
-      <Header locale={locale} keep={keep} section="settings" />
-      <main id="main" className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
+    <AppShell locale={locale} keep={keep} section="settings">
+      <div className="mx-auto w-full max-w-4xl space-y-6">
         <h1 className="text-2xl font-semibold sm:text-3xl">{t('settings.title')}</h1>
         {msg && <p role="status" className={`card ${msg === 'saved' ? '' : 'sev-critical'}`} data-testid="settings-msg">{t(`settings.${msg}`)}</p>}
         {!projects.ok && <p role="alert" className="card sev-critical">{t(`error.${projects.reason}`)}</p>}
@@ -171,7 +169,7 @@ export default async function SettingsPage({ params, searchParams }: { params: P
             </>
           );
         })()}
-      </main>
-    </>
+      </div>
+    </AppShell>
   );
 }

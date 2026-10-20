@@ -13,7 +13,7 @@ import { withTenant } from './db.ts';
  */
 export const MAX_ROWS = 5000;
 export interface RawRow { line: number; cells: Record<string, string> }
-export interface RowResult { line: number; ok: boolean; errors: string[]; row?: { indicator_code: string; period: string; period_end: string; kind: 'target' | 'actual'; value: number; dimensions: Record<string, string>; comment: string | null } }
+export interface RowResult { line: number; ok: boolean; errors: string[]; exists?: boolean; row?: { indicator_code: string; period: string; period_end: string; kind: 'target' | 'actual'; value: number; dimensions: Record<string, string>; comment: string | null } }
 
 /** CSV RFC 4180 minimal : guillemets, guillemets doublés, retours à la ligne dans un champ, BOM, séparateur « , » ou « ; » détecté sur l'en-tête. */
 export function parseCsv(text: string): string[][] {
@@ -97,13 +97,14 @@ export function judge(rows: RawRow[], known: Set<string>, existing: Set<string>)
       else dimensions[k.slice(4)] = v.slice(0, 100);
     }
     const comment = cells.comment ? cells.comment.slice(0, 1000) : null;
+    let exists = false;
     if (errors.length === 0) {
       const key = keyOf(code, period, kind, dimensions);
       if (seen.has(key)) errors.push('doublon dans le fichier (même indicateur, période, nature et ventilation)');
-      else if (existing.has(key)) errors.push('une valeur existe déjà en base pour cette clé (aucun écrasement)');
+      else if (existing.has(key)) { errors.push('une valeur existe déjà en base pour cette clé (aucun écrasement)'); exists = true; }
       seen.add(key);
     }
-    return errors.length ? { line, ok: false, errors } : { line, ok: true, errors, row: { indicator_code: code, period, period_end: end, kind: kind as 'target' | 'actual', value: value!, dimensions, comment } };
+    return errors.length ? { line, ok: false, errors, ...(exists ? { exists } : {}) } : { line, ok: true, errors, row: { indicator_code: code, period, period_end: end, kind: kind as 'target' | 'actual', value: value!, dimensions, comment } };
   });
 }
 export const keyOf = (code: string, period: string, kind: string, dims: Record<string, string>) =>

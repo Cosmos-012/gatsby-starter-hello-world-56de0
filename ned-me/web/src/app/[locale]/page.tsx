@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { apiGet, isDevToken } from '@/lib/api';
 import { oidcConfig, readSession } from '@/lib/session';
-import { Header } from './chrome';
+import { AppShell } from '@/components/app-shell';
 import { formatters, isLocale, LOCALES, messagesFor, translate, translatePlural } from '@/lib/i18n';
 import type { Overview, Project, Status } from '@/lib/types';
 
@@ -40,22 +40,19 @@ export default async function OverviewPage({ params, searchParams }: { params: P
   const [projects, overview] = await Promise.all([apiGet<Project[]>('/projects'), apiGet<Overview>(`/dashboard/overview?${q}`)]);
 
   const keep = new URLSearchParams({ ...(project ? { project } : {}), ...(asOf ? { as_of: asOf } : {}) }).toString();
-  const header = <Header locale={locale} keep={keep} section="overview" />;
 
   const title = <h1 className="text-2xl font-semibold sm:text-3xl">{t('app.question')}</h1>;
 
   if (!overview.ok) {
     return (
-      <>
-      <a href="#main" className="skip">{t('a11y.skip')}</a>
-      {header}
-      <main id="main" className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
+      <AppShell locale={locale} keep={keep} section="overview">
+      <div className="space-y-6">
         {title}
         {authError && <p role="alert" className="card sev-critical" data-testid="auth-error">{t(`auth.error.${authError}`)}</p>}
         <p role="alert" className="card sev-critical">{t(`error.${overview.reason}`)}</p>
         {oidc && !session && <p><a href={`/sso/login?return=${encodeURIComponent(`/${locale}`)}`} className="link-btn inline-block" style={{ background: 'var(--bar)', color: '#fff', borderColor: 'var(--bar)' }}>{t('auth.login')}</a></p>}
-      </main>
-      </>
+      </div>
+      </AppShell>
     );
   }
   const o = overview.data;
@@ -161,10 +158,8 @@ export default async function OverviewPage({ params, searchParams }: { params: P
   };
 
   return (
-    <>
-    <a href="#main" className="skip">{t('a11y.skip')}</a>
-    {header}
-    <main id="main" className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
+    <AppShell locale={locale} keep={keep} section="overview">
+    <div className="space-y-6">
       {title}
       {!session && isDevToken() && <p className="rounded-md border px-3 py-2 text-xs secondary" style={{ borderColor: 'var(--border)' }}>{t('dev.banner')}</p>}
 
@@ -195,8 +190,8 @@ export default async function OverviewPage({ params, searchParams }: { params: P
           <p className="text-xs muted">{t('na.note')}</p>
         </section>
       )}
-    </main>
-    </>
+    </div>
+    </AppShell>
   );
 }
 
