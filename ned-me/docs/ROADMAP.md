@@ -14,7 +14,8 @@
 | Pages : tableau de bord, indicateurs (liste + fiche + saisie), configuration, **import CSV/XLSX** | Fait | fr / en / ar |
 | Import en lot : aperçu sans écriture, tout-ou-rien, brouillons, pas d'écrasement | Fait | |
 | Collecte de terrain (Kobo/ODK, formulaires, hors ligne) | Prévu | licence AGPL de KoboToolbox : décision à prendre |
-| Intégrations (DHIS2, Kobo, webhooks entrants/sortants, API publique documentée) | Prévu | |
+| Point d'extension des intégrations (interface de connecteur, import commun, tests) | Fait | `INTEGRATIONS.md` |
+| Connecteurs réels (DHIS2, Kobo/ODK), interface d'administration, secrets, planification, webhooks, API publique documentée | Prévu | |
 | Temps réel (flux d'événements vers l'interface, notifications) | Prévu | |
 | Analyse avancée (anomalies, ventilations, comparaisons, prévisions multi-indicateurs) | Prévu | méthodes statistiques déterministes d'abord, expliquables |
 | Assistant IA sur données réelles | Prévu | voir « Décisions » |

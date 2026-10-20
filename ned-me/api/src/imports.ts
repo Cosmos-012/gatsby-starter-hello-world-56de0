@@ -109,18 +109,31 @@ export function judge(rows: RawRow[], known: Set<string>, existing: Set<string>)
 export const keyOf = (code: string, period: string, kind: string, dims: Record<string, string>) =>
   JSON.stringify([code, period, kind, Object.entries(dims).sort(([a], [b]) => a.localeCompare(b))]);
 
+/** Jugement d'un lot de lignes brutes contre le projet : même chemin pour un fichier, un connecteur ou toute future source. */
+export async function analyseRows(c: pg.PoolClient, projectId: string, raw: RawRow[]) {
+  const inds = (await c.query('SELECT id, code FROM indicator WHERE project_id = $1', [projectId])).rows as { id: string; code: string }[];
+  const idByCode = new Map(inds.map((i) => [i.code, i.id]));
+  const ex = (await c.query(`SELECT i.code, v.period, v.kind, v.dimensions FROM indicator_value v JOIN indicator i ON i.tenant_id = v.tenant_id AND i.id = v.indicator_id WHERE i.project_id = $1`, [projectId])).rows;
+  const existing = new Set(ex.map((r) => keyOf(r.code, r.period, r.kind, r.dimensions)));
+  return { results: judge(raw, new Set(idByCode.keys()), existing), idByCode };
+}
+/** Écriture des lignes jugées valides, TOUJOURS en brouillon : aucune source n'entre dans le workflow au-delà de « draft ». */
+export async function insertDrafts(c: pg.PoolClient, idByCode: Map<string, string>, results: RowResult[], source: string) {
+  await c.query("SELECT set_config('app.comment', $1, true)", [source]);
+  for (const r of results) {
+    const x = r.row!;
+    await c.query(`INSERT INTO indicator_value (tenant_id, indicator_id, period, period_end, kind, value, dimensions, comment) VALUES (app.current_tenant(), $1,$2,$3,$4,$5,$6,$7)`,
+      [idByCode.get(x.indicator_code), x.period, x.period_end, x.kind, x.value, x.dimensions, x.comment]);
+  }
+}
+
 const Body = z.object({ project_id: z.guid(), format: z.enum(['csv', 'xlsx']), content: z.string().min(1).max(7_000_000) }).strict();
 const ROLES = ['admin', 'me_manager', 'data_entry'];
 
 export function registerImports(app: FastifyInstance, pool: pg.Pool) {
   async function analyse(c: pg.PoolClient, b: z.infer<typeof Body>) {
     const table = b.format === 'csv' ? parseCsv(b.content) : await parseXlsx(b.content);
-    const raw = toRawRows(table);
-    const inds = (await c.query('SELECT id, code FROM indicator WHERE project_id = $1', [b.project_id])).rows as { id: string; code: string }[];
-    const idByCode = new Map(inds.map((i) => [i.code, i.id]));
-    const ex = (await c.query(`SELECT i.code, v.period, v.kind, v.dimensions FROM indicator_value v JOIN indicator i ON i.tenant_id = v.tenant_id AND i.id = v.indicator_id WHERE i.project_id = $1`, [b.project_id])).rows;
-    const existing = new Set(ex.map((r) => keyOf(r.code, r.period, r.kind, r.dimensions)));
-    return { results: judge(raw, new Set(idByCode.keys()), existing), idByCode };
+    return analyseRows(c, b.project_id, toRawRows(table));
   }
   const guard = async (req: any, reply: any) => { if (!req.principal.roles.some((r: string) => ROLES.includes(r))) return reply.code(403).send({ error: 'forbidden' }); };
   const fail = (reply: any, e: unknown) => reply.code(400).send({ error: 'import_format', message: (e as Error).message });
@@ -145,12 +158,7 @@ export function registerImports(app: FastifyInstance, pool: pg.Pool) {
         const { results, idByCode } = await analyse(c, b);
         const bad = results.filter((r) => !r.ok).length;
         if (bad) return reply.code(422).send({ error: 'import_has_errors', errors: bad });          // tout ou rien
-        await c.query("SELECT set_config('app.comment', 'import', true)");
-        for (const r of results) {
-          const x = r.row!;
-          await c.query(`INSERT INTO indicator_value (tenant_id, indicator_id, period, period_end, kind, value, dimensions, comment) VALUES (app.current_tenant(), $1,$2,$3,$4,$5,$6,$7)`,
-            [idByCode.get(x.indicator_code), x.period, x.period_end, x.kind, x.value, x.dimensions, x.comment]);
-        }
+        await insertDrafts(c, idByCode, results, 'import');
         return reply.code(201).send({ inserted: results.length, state: 'draft' });
       });
     } catch (e) { if ((e as any)?.code || (e as any)?.name === 'ZodError') throw e; return fail(reply, e); }
