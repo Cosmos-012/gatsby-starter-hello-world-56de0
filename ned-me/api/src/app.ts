@@ -17,6 +17,7 @@ import { registerDqa } from './dqa-routes.ts';
 import { registerTracking } from './tracking.ts';
 import { registerFramework } from './framework.ts';
 import { registerProjectConfig } from './project-config.ts';
+import { registerImports } from './imports.ts';
 import { canTransition, transitionExists, type State } from './workflow.ts';
 
 type Verify = (token: string) => Promise<Principal>;
@@ -146,6 +147,7 @@ export function buildApp(pool: pg.Pool, verify: Verify, storage?: Storage, opts:
   if (storage) registerEvidence(app, pool, storage);
   registerFramework(app, pool);
   registerProjectConfig(app, pool);
+  registerImports(app, pool);
   };
   app.register(async (inst) => { mount(inst); });
   return app;

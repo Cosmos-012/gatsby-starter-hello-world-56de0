@@ -6,6 +6,7 @@ export default defineConfig({
   workers: 1,
   reporter: [['list']],
   use: {
+    screenshot: 'only-on-failure',
     baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:3100',
     launchOptions: process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
   },

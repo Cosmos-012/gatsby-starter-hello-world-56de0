@@ -3,14 +3,14 @@ import { LOCALES, messagesFor, translate, type Locale } from '@/lib/i18n';
 import { oidcConfig, readSession } from '@/lib/session';
 
 /** Barre supérieure commune : marque, navigation entre pages, langue, connexion. */
-export async function Header({ locale, keep, section }: { locale: Locale; keep: string; section: 'overview' | 'indicators' | 'settings' }) {
+export async function Header({ locale, keep, section }: { locale: Locale; keep: string; section: 'overview' | 'indicators' | 'import' | 'settings' }) {
   const m = messagesFor(locale);
   const t = (k: string, p?: Record<string, string | number>) => translate(m, k, p);
   const session = await readSession();
   const oidc = !!oidcConfig();
-  const path = section === 'settings' ? '/settings' : section === 'indicators' ? '/indicators' : '';
+  const path = section === 'settings' ? '/settings' : section === 'indicators' ? '/indicators' : section === 'import' ? '/import' : '';
   const q = keep ? `?${keep}` : '';
-  const nav = [{ id: 'overview' as const, href: `/${locale}${q}`, label: t('nav.overview') }, { id: 'indicators' as const, href: `/${locale}/indicators${q}`, label: t('nav.indicators') }, { id: 'settings' as const, href: `/${locale}/settings${q}`, label: t('nav.settings') }];
+  const nav = [{ id: 'overview' as const, href: `/${locale}${q}`, label: t('nav.overview') }, { id: 'indicators' as const, href: `/${locale}/indicators${q}`, label: t('nav.indicators') }, { id: 'import' as const, href: `/${locale}/import${q}`, label: t('nav.import') }, { id: 'settings' as const, href: `/${locale}/settings${q}`, label: t('nav.settings') }];
   return (
     <header className="topbar">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3 sm:px-6">

@@ -41,9 +41,9 @@ test('fiche : historique, saisie en brouillon, soumission ; doublon et valeur in
   await expect(page.getByTestId('value-2026-Q2-actual')).toContainText('96,5');
   await fill('2026-Q2', '97');
   await expect(page.getByTestId('ind-msg')).toContainText('existe déjà');
-  await fill('2026-Q3', 'abc');
+  await fill('2026-Q5', 'abc');
   await expect(page.getByTestId('ind-msg')).toContainText('Valeurs invalides');
-  await expect(page.getByTestId('value-2026-Q3-actual')).toHaveCount(0);
+  await expect(page.getByTestId('value-2026-Q5-actual')).toHaveCount(0);
 
   await page.getByTestId('value-2026-Q2-actual').getByRole('button', { name: 'Soumettre' }).click();
   await expect(page.getByTestId('ind-msg')).toContainText('État mis à jour');
