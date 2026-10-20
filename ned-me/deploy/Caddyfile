@@ -1,0 +1,11 @@
+{$NED_DOMAIN:localhost} {
+	encode gzip
+	handle_path /api/* { reverse_proxy api:3000 }
+	handle /auth/* { reverse_proxy keycloak:8080 }   # Keycloak sous /auth (KC_HTTP_RELATIVE_PATH) ; la connexion de l'interface web est sous /sso
+	handle { reverse_proxy web:3100 }
+}
+
+# Fichiers (URL présignées) : hôte dédié, sans réécriture de chemin ni d'hôte, sinon la signature S3 est invalide.
+files.{$NED_DOMAIN:localhost} {
+	reverse_proxy storage:8333
+}
