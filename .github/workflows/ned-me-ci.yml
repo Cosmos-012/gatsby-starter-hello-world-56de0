@@ -116,6 +116,11 @@ jobs:
       - name: Bout en bout (base + vraie API + vrai serveur Next + Chromium)
         run: PSQL_ADMIN="psql -h localhost -U postgres" ./e2e/run.sh
         working-directory: ned-me/web
+      - name: Java 21 (Keycloak 26.0.x ne supporte pas Java 25, devenu le défaut de l'image ubuntu-latest)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
       - name: Keycloak réel (tarball officiel, royaume de test = royaume livré + utilisateur de démonstration)
         run: |
           curl -fsSL -o /tmp/kc.tgz https://github.com/keycloak/keycloak/releases/download/26.0.8/keycloak-26.0.8.tar.gz
