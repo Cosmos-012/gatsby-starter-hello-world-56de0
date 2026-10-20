@@ -11,6 +11,7 @@ expected=$(awk '{print $1; exit}' "$dump.sha256"); actual=$(sha256sum "$dump" | 
 if psql -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = '$target'" | grep -q 1; then
   echo "refus : la base '$target' existe déjà" >&2; exit 4
 fi
+. "$(dirname "$0")/lib-pgversion.sh"; check_pg_client_version pg_restore postgres || exit 5
 createdb "$target"
 pg_restore --exit-on-error --no-owner --dbname="$target" "$dump"
 echo "restauré dans $target"

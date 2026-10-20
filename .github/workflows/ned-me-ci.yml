@@ -30,6 +30,18 @@ jobs:
               echo "Le test BI n'a pas détecté la mutation $m : il ne protège pas ce point" >&2; exit 1
             fi
           done
+      - name: Outils client PostgreSQL 16 (même version majeure que le serveur de test)
+        # L'image ubuntu-latest change : son pg_dump/pg_restore a fini par être plus récent que le serveur 16 et a écrit des instructions
+        # (SET transaction_timeout) que ce serveur refuse. Les scripts de sauvegarde exigent désormais des outils de la même version.
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-16
+          echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          /usr/lib/postgresql/16/bin/pg_dump --version
       - name: Sauvegarde / restauration (intégrité, RLS, cloisonnement)
         env: { PGHOST: localhost, PGUSER: postgres }
         run: WITH_POSTGIS=1 PSQL_ADMIN="psql -h localhost -U postgres" ned-me/db/tests/backup_restore.sh

@@ -5,6 +5,7 @@
 set -euo pipefail
 db=${1:?base requise}; out=${2:?dossier requis}
 mkdir -p "$out"
+. "$(dirname "$0")/lib-pgversion.sh"; check_pg_client_version pg_dump "$db" || exit 5
 f="$out/$db-$(date -u +%Y%m%dT%H%M%SZ).dump"
 # --no-owner : restaurable sous un autre propriétaire ; les droits (GRANT) et la RLS sont conservés.
 pg_dump --format=custom --compress=6 --no-owner --file="$f.part" "$db"

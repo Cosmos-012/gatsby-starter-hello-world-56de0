@@ -64,6 +64,15 @@ SQL
 echo "$out" | grep -q "cannot be child of" || die "échec pour une autre raison que la règle métier : $out"
 ok "règles métier (déclencheurs) actives après restauration (impact sous impact refusé)"
 
+# Outils client plus récents que le serveur : refus net (code 5) avec message, sans archive ni base créée.
+SHIM=$(mktemp -d); for t in pg_dump pg_restore; do printf '#!/bin/sh\necho "%s (PostgreSQL) 99.0"\n' "$t" > "$SHIM/$t"; chmod +x "$SHIM/$t"; done
+before=$(ls "$OUT"/*.dump | wc -l); rc=0
+PATH="$SHIM:$PATH" deploy/backup.sh "$SRC" "$OUT" >/dev/null 2>"$OUT/err" || rc=$?
+[ "$rc" = 5 ] && grep -q "plus récent que le serveur" "$OUT/err" && [ "$(ls "$OUT"/*.dump | wc -l)" = "$before" ] || die "sauvegarde avec un pg_dump plus récent que le serveur non refusée (code $rc)"
+rc=0; PATH="$SHIM:$PATH" deploy/restore.sh "$f" ned_should_not_exist >/dev/null 2>"$OUT/err" || rc=$?
+[ "$rc" = 5 ] && ! q -d postgres -c "SELECT 1 FROM pg_database WHERE datname='ned_should_not_exist'" | grep -q 1 || die "restauration avec un pg_restore plus récent que le serveur non refusée (code $rc)"
+rm -rf "$SHIM"; ok "outils client plus récents que le serveur : sauvegarde et restauration refusées (code 5), rien créé"
+
 # Rotation
 for i in 1 2 3; do sleep 1; KEEP=2 deploy/backup.sh "$SRC" "$OUT" >/dev/null; done
 [ "$(ls "$OUT"/$SRC-*.dump | wc -l)" = 2 ] && [ "$(ls "$OUT"/$SRC-*.sha256 | wc -l)" = 2 ] || die "rotation KEEP=2 incorrecte"; ok "rotation : 2 sauvegardes conservées, sommes associées incluses"
