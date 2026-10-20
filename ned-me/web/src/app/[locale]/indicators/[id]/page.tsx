@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { apiGet } from '@/lib/api';
 import { formatters, isLocale, messagesFor, translate } from '@/lib/i18n';
 import type { IndicatorDetail, ProjectConfig } from '@/lib/types';
+import { TrendChart, type TrendPoint } from '@/components/trend-chart';
 import { AppShell } from '@/components/app-shell';
 import { addValue, moveValue } from './actions';
 
@@ -37,6 +38,12 @@ export default async function IndicatorPage({ params, searchParams }: { params: 
   ];
   const dims = (v: Record<string, string>) => Object.entries(v).map(([k, x]) => `${k}: ${x}`).join(', ');
 
+  const byPeriod = new Map<string, TrendPoint & { end: string }>();
+  for (const v of d.values) {
+    if (Object.keys(v.dimensions).length > 0) continue;       // la courbe montre l'agrégat ; les ventilations restent dans le tableau
+    const pt = byPeriod.get(v.period) ?? { period: v.period, end: v.period_end }; pt[v.kind] = v.value; byPeriod.set(v.period, pt);
+  }
+  const trend: TrendPoint[] = [...byPeriod.values()].sort((a, b) => a.end.localeCompare(b.end)).map(({ end: _e, ...pt }) => pt);
   return (
     <AppShell locale={locale} keep="" section="indicators">
       <div className="mx-auto w-full max-w-4xl space-y-6">
@@ -59,6 +66,7 @@ export default async function IndicatorPage({ params, searchParams }: { params: 
 
         <section className="card space-y-3" aria-labelledby="vals">
           <h2 id="vals" className="font-semibold">{t('ind.values')}</h2>
+          {trend.length > 1 && <TrendChart points={trend} locale={locale} labels={{ actual: t('ind.kind.actual'), target: t('ind.kind.target') }} ariaLabel={t('ind.trend_alt', { name: pick(d.name) })} />}
           {d.values.length === 0 ? <p className="muted">{t('ind.values_none')}</p> : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm" data-testid="values-table">

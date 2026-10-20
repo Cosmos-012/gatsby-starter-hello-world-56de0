@@ -47,3 +47,10 @@ Puis `await runConnector(pool, principal, 'kobo', config, projectId)` rend `ok`,
 - Pas de planification (synchronisation périodique) ni de réception en direct (webhooks signés).
 - Un connecteur ne remonte que des **valeurs d'indicateurs** ; pas encore de dimensions de ventilation obligatoires, de preuves jointes ni de résultats d'évaluation.
 - Décision à prendre : KoboToolbox est sous AGPL-3.0 ; l'appeler par son API comme service séparé n'impose rien à notre code.
+
+
+## Exécution depuis l'interface
+La page `/[locale]/integrations` est générée à partir de `GET /integrations` (descripteurs de formulaire des connecteurs enregistrés) ; l'exécution passe par `POST /integrations/:id/run`. Le jeton saisi ne sert qu'à l'appel : il n'est ni stocké, ni journalisé, ni renvoyé au navigateur (vérifié par test de bout en bout). Le chemin de succès est couvert par les tests d'API avec un serveur Kobo simulé ; il n'a pas encore été essayé contre un vrai serveur KoboToolbox.
+
+## Données de démonstration
+`db/seed/demo.sql` crée trois projets entièrement synthétiques (éducation, santé, eau) ; `./preview.sh start` les charge (`PREVIEW_DEMO=0` pour les omettre). Ne jamais charger en production.

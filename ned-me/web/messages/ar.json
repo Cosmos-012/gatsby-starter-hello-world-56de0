@@ -165,6 +165,7 @@
  "ind.trend.flat": "مستقر",
  "ind.trend.improving": "في تحسّن",
  "ind.trend.insufficient": "بيانات غير كافية",
+ "ind.trend_alt": "تطور القيم المنجزة والمستهدفة للمؤشر {name}. الجدول أدناه يعرض القيم نفسها.",
  "ind.type": "النوع",
  "ind.unit": "الوحدة",
  "ind.val.actions": "الإجراءات",

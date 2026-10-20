@@ -138,6 +138,7 @@
  "ind.trend.flat": "Stable",
  "ind.trend.improving": "En amélioration",
  "ind.trend.insufficient": "Données insuffisantes",
+ "ind.trend_alt": "Évolution du réalisé et de la cible pour {name}. Le tableau ci-dessous donne les mêmes valeurs.",
  "ind.type": "Type",
  "ind.unit": "Unité",
  "ind.val.actions": "Actions",

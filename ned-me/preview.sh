@@ -21,6 +21,7 @@ stop
 psql_admin -d postgres -c "DROP DATABASE IF EXISTS $DB" >/dev/null; psql_admin -d postgres -c "CREATE DATABASE $DB" >/dev/null
 for f in "$ROOT"/db/migrations/*.sql; do case "$f" in *003_gis.sql) continue ;; esac; psql_admin -d "$DB" -f "$f" >/dev/null 2>&1; done
 psql_admin -d "$DB" -f "$ROOT/db/seed/e2e.sql" >/dev/null
+[ "${PREVIEW_DEMO:-1}" = 1 ] && psql_admin -d "$DB" -f "$ROOT/db/seed/demo.sql" >/dev/null   # projets synthétiques (PREVIEW_DEMO=0 pour les omettre)
 psql_admin -d "$DB" -c "DROP ROLE IF EXISTS ned_preview_app; CREATE ROLE ned_preview_app LOGIN PASSWORD 'preview' IN ROLE ned_app" >/dev/null
 ( cd "$ROOT/api" && DATABASE_URL="postgres://ned_preview_app:preview@$DBHOST:5432/$DB" DEV_JWT_SECRET=$SECRET NED_ALLOW_MEMORY_STORAGE=1 PORT=$API_PORT RATE_LIMIT_MAX=10000 \
     setsid node --experimental-strip-types src/server.ts < /dev/null > "$STATE/api.log" 2>&1 & echo $! > "$STATE/api.pid" )

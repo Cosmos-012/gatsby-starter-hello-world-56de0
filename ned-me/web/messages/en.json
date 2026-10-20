@@ -138,6 +138,7 @@
  "ind.trend.flat": "Flat",
  "ind.trend.improving": "Improving",
  "ind.trend.insufficient": "Not enough data",
+ "ind.trend_alt": "Actual versus target over time for {name}. The table below gives the same values.",
  "ind.type": "Type",
  "ind.unit": "Unit",
  "ind.val.actions": "Actions",
